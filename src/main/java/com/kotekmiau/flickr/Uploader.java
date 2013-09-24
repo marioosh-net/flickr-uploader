@@ -16,6 +16,7 @@ import java.io.InputStreamReader;
 import java.net.URL;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Date;
@@ -27,6 +28,7 @@ import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.PosixParser;
+import org.apache.log4j.Logger;
 import org.xml.sax.SAXException;
 import com.aetrion.flickr.Flickr;
 import com.aetrion.flickr.FlickrException;
@@ -63,6 +65,8 @@ import com.drew.metadata.exif.ExifReader;
  */
 public class Uploader {
 
+	private static Logger log = Logger.getLogger(Uploader.class);
+	
 	final static String TOKEN_FILE = ".flickr-token";
 	final static String CONFIG_FILE = ".flickr-uploader";
 
@@ -78,6 +82,7 @@ public class Uploader {
     static String token = "";
     static String dir = ".";
     static boolean saveToken = true;
+    static boolean nq = false;
 
     public static void main(String[] args) {
         try {
@@ -85,9 +90,10 @@ public class Uploader {
             options.addOption("t", true, "auth token");
             options.addOption("d", true, "directory to upload");
             options.addOption("ns", false, "no save token");
+            options.addOption("nq", false, "don't ask questions");
             options.addOption("h", false, "help");
 
-            System.out.println("HOME: "+ System.getProperty("user.home") + "\n");
+            log.info("HOME: "+ System.getProperty("user.home"));
 
             CommandLineParser parser = new PosixParser();
             CommandLine cmd = parser.parse(options, args);
@@ -95,7 +101,7 @@ public class Uploader {
             if (cmd.hasOption("h")) {
 	            HelpFormatter formatter = new HelpFormatter();
 	            formatter.printHelp("java -jar flickr-uploader.jar", options);
-	            System.out.println("");
+	            log.debug("");
             }
             
             if (cmd.hasOption("t")) {
@@ -108,10 +114,13 @@ public class Uploader {
             if (cmd.hasOption("ns")) {
             	saveToken = false;
             }
+            if(cmd.hasOption("nq")) {
+                nq = true;
+            }
 
             new Uploader();
         } catch (Exception e) {
-            System.out.println(e.getMessage());
+            log.debug(e.getMessage());
         }
     }
 
@@ -121,15 +130,20 @@ public class Uploader {
 			if(auth != null) {
 				getSets();
 	            if (auth.getPermission().equals(Permission.WRITE) || auth.getPermission().equals(Permission.DELETE)) {
-	                Console c = System.console();
-	                String yn = c.readLine("\nUpload \"" + dir + "\" directory (y/n) ? ");
-	                if (yn.equalsIgnoreCase("y")) {
-	                    uploadDir(dir);
-	                }
+					if (nq) {
+						uploadDir(dir);
+					} else {
+						Console c = System.console();
+						String yn = c.readLine("\nUpload \"" + dir + "\" directory (y/n) ? ");
+						if (yn.equalsIgnoreCase("y")) {
+							uploadDir(dir);
+						}
+					}
 	            }
 			}
 		} catch (Exception e) {
-			System.out.println(e.getMessage());
+			e.printStackTrace();
+			log.error(e);
 		}
     }
 
@@ -156,9 +170,9 @@ public class Uploader {
         	in1 = new FileInputStream(f);
             properties.load(in1);
         } catch (FileNotFoundException e) {
-			System.out.println(e.getMessage());
+			log.debug(e.getMessage());
 		} catch (IOException e) {
-			System.out.println(e.getMessage());
+			log.debug(e.getMessage());
 		} finally {
             in1.close();        	
         }
@@ -184,15 +198,15 @@ public class Uploader {
                 return auth;
                 
             } catch (FlickrException e) {
-                System.out.println(e.getMessage());
+                log.debug(e.getMessage());
             }
         } else {
             try {
                 final String frob = authInterface.getFrob();
 
                 URL url = authInterface.buildAuthenticationUrl(Permission.DELETE, frob);
-                System.out.println("Press return after you granted access at this URL:");
-                System.out.println(url.toExternalForm());
+                log.debug("Press return after you granted access at this URL:");
+                log.debug(url.toExternalForm());
                 BufferedReader infile = new BufferedReader(new InputStreamReader(System.in));
                 String line = infile.readLine();
 
@@ -205,19 +219,19 @@ public class Uploader {
                 return auth;
                 
             } catch (FlickrException e) {
-                System.out.println(e.getMessage());
+                log.debug(e.getMessage());
             }
         }    	
         return null;
     }
     
     private void tokenInfo(Auth auth) {
-    	System.out.println("-- AUTH --");
-    	System.out.printf("Token      :%s\n", auth.getToken());
-        System.out.printf("nsid       :%s\n", auth.getUser().getId());
-        System.out.printf("Realname   :%s\n", auth.getUser().getRealName());
-        System.out.printf("Username   :%s\n", auth.getUser().getUsername());
-        System.out.printf("Permission :%s\n", auth.getPermission());
+    	log.debug("-- AUTH --");
+    	log.debug(String.format("Token      :%s", auth.getToken()));
+        log.debug(String.format("nsid       :%s", auth.getUser().getId()));
+        log.debug(String.format("Realname   :%s", auth.getUser().getRealName()));
+        log.debug(String.format("Username   :%s", auth.getUser().getUsername()));
+        log.debug(String.format("Permission :%s", auth.getPermission()));
     }
 
     /**
@@ -245,20 +259,25 @@ public class Uploader {
                 metaData.setHidden(true);
                 metaData.setPublicFlag(false);
                 metaData.setTitle(p.getName());
+                StringBuffer sb = new StringBuffer();
                 try {
-                    // System.out.print(p.getAbsolutePath() + " ... ");
-                    System.out.printf("%-70s", p.getAbsolutePath() + " ... ");
+                    sb.append(String.format("Uploading %-70s", p.getAbsolutePath()));
                     String photoId = uploader.upload(new FileInputStream(p), metaData);
-                    System.out.print("photoId: " + photoId);
-                    String title = new File(dir).getName();
+                    sb.append("photoId: " + photoId);
+                    final String title = new File(dir).getName();
                     
                     Metadata metadata = ImageMetadataReader.readMetadata(new BufferedInputStream(new FileInputStream(p)));
-                    Directory d = metadata.getDirectory(ExifDirectory.class);
-                    Date date = d.getDate(ExifDirectory.TAG_DATETIME);
-                    
-                    String[] tags = new String[]{title, new SimpleDateFormat("yyyy.MM.dd").format(date), new SimpleDateFormat("yyyy").format(date)};
-                    f.getPhotosInterface().addTags(photoId, tags);
-                    System.out.print(", Tags: " + new HashSet<String>(Arrays.asList(tags)));
+                    final Directory d = metadata.getDirectory(ExifDirectory.class);
+                    ArrayList<String> tags = new ArrayList<String>(){{
+                    	add(title);
+                        if(d.containsTag(ExifDirectory.TAG_DATETIME)) {
+                        	Date date = d.getDate(ExifDirectory.TAG_DATETIME);
+                    		add(new SimpleDateFormat("yyyy.MM.dd").format(date));
+                    		add(new SimpleDateFormat("yyyy").format(date));
+                    	}
+                    }};
+                    f.getPhotosInterface().addTags(photoId, tags.toArray(new String[tags.size()]));
+                    sb.append(", Tags: " + new HashSet<String>(tags));
                     
                     if (i == 0) {
                         s = findSet(new File(dir).getName());
@@ -266,25 +285,28 @@ public class Uploader {
                             try {
                             	
                                 s = f.getPhotosetsInterface().create(title, "", photoId);
-                                System.out.print(", photosetId: "+ s.getId() + " (new); ");
-                                f.getPhotosetsInterface().addPhoto(s.getId(), photoId);
+                                sb.append(", photosetId: "+ s.getId() + " (new); ");
 
                             } catch (Exception e1) {
-                                System.out.print(e1.getMessage());
+                            	log.error(e1.getMessage());
+                                sb.append(" >>> "+e1.getMessage());
                             }
                         }
                     } else {
                         if (s != null) {
                             // add photo to photoset
-                            System.out.print(", photosetId: "+ s.getId() + "; ");
                             f.getPhotosetsInterface().addPhoto(s.getId(), photoId);
+                            sb.append(", photosetId: "+ s.getId() + "; ");
                         }
                     }
-                    System.out.println("");
 
                 } catch (Exception e) {
-                    System.out.println(e.getMessage());
+                	e.printStackTrace();
+                	log.error(e.getMessage());
+                    sb.append(" >>> "+e.getMessage());
                 }
+                
+                log.info(sb.toString());
             }
             if (p.isDirectory()) {
                 uploadDir(p.getAbsolutePath());
@@ -294,19 +316,19 @@ public class Uploader {
     }
 
     private Photosets getSets() {
-    	System.out.println("-- SETS --");
+    	log.debug("-- SETS --");
         try {
             Photosets sets = f.getPhotosetsInterface().getList(auth.getUser().getId());
             if(sets.getPhotosets().size() == 0) {
-            	System.out.println("No Photosets");
+            	log.debug("No Photosets");
             }
             for (Object o : sets.getPhotosets()) {
                 Photoset s = (Photoset) o;
-                System.out.printf("%-30s%s %d\n", s.getTitle(), s.getId(), s.getPhotoCount());
+                log.debug(String.format("%-50s%s %d", s.getTitle(), s.getId(), s.getPhotoCount()));
             }
             return sets;
         } catch (Exception e) {
-            System.out.println(e.getMessage());
+            log.debug(e.getMessage());
         }
         return null;
     }
@@ -321,28 +343,30 @@ public class Uploader {
                 }
             }
         } catch (Exception e) {
-            System.out.println(e.getMessage());
+            log.debug(e.getMessage());
         }
         return null;
     }
 
     private boolean saveToken(String token) {
+    	StringBuffer sb = new StringBuffer();
         File f = new File(System.getProperty("user.home"), Uploader.TOKEN_FILE);
         try {
        		f.createNewFile();
             if (f.exists()) {
-            	System.out.print("Saving token \""+token+"\" to \""+f.getAbsolutePath()+"\" ... ");
+            	sb.append("Saving token \""+token+"\" to \""+f.getAbsolutePath()+"\" ... ");
                 FileWriter w = new FileWriter(f);
                 BufferedWriter writer = new BufferedWriter(w);
                 writer.write(token);
                 writer.close();
-                System.out.println("DONE");
+                sb.append("DONE");
             }
             return true;
         } catch (Exception e) {
-        	System.out.println("FAIL");
-            System.out.println(e.getMessage());
+        	sb.append("FAIL");
+            log.error(e.getMessage());
         }
+        log.debug(sb.toString());
         return false;
     }
 
@@ -353,14 +377,14 @@ public class Uploader {
     private String readToken() {
         File f = new File(System.getProperty("user.home"), Uploader.TOKEN_FILE);
         if(f.exists()) {
-            System.out.println("Reading token from \""+f.getAbsolutePath()+"\"");
+            log.debug("Reading token from \""+f.getAbsolutePath()+"\"");
             try {
                 FileReader r = new FileReader(f);
                 BufferedReader br = new BufferedReader(r);
                 String token = br.readLine();
                 return token;
             } catch (Exception e) {
-                System.out.println(e.getMessage());
+                log.debug(e.getMessage());
             }
         }
         return "";
@@ -378,7 +402,7 @@ public class Uploader {
 				f.getPhotosInterface().delete(((Photo)o).getId());
 			}
 		} catch (Exception e) {
-			System.out.println(e.getMessage());
+			log.debug(e.getMessage());
 		}
     }
 }
