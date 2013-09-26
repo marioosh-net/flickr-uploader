@@ -1,2 +1,5 @@
 /target
 *setup.properties
+.settings/
+.project
+.classpath
