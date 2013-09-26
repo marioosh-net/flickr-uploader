@@ -205,8 +205,8 @@ public class Uploader {
                 final String frob = authInterface.getFrob();
 
                 URL url = authInterface.buildAuthenticationUrl(Permission.DELETE, frob);
-                log.debug("Press return after you granted access at this URL:");
-                log.debug(url.toExternalForm());
+                System.out.println("Press return after you granted access at this URL:");
+                System.out.println(url.toExternalForm());
                 BufferedReader infile = new BufferedReader(new InputStreamReader(System.in));
                 String line = infile.readLine();
 
@@ -219,6 +219,7 @@ public class Uploader {
                 return auth;
                 
             } catch (FlickrException e) {
+            	log.error(e);
                 log.debug(e.getMessage());
             }
         }    	
@@ -261,7 +262,7 @@ public class Uploader {
                 metaData.setTitle(p.getName());
                 StringBuffer sb = new StringBuffer();
                 try {
-                    sb.append(String.format("Uploading %-70s", p.getAbsolutePath()));
+                    sb.append(String.format("%-5s Uploading %-70s", i, p.getAbsolutePath()));
                     String photoId = uploader.upload(new FileInputStream(p), metaData);
                     sb.append("photoId: " + photoId);
                     final String title = new File(dir).getName();
@@ -328,7 +329,7 @@ public class Uploader {
             }
             return sets;
         } catch (Exception e) {
-            log.debug(e.getMessage());
+            log.error(e.getMessage());
         }
         return null;
     }
@@ -343,7 +344,7 @@ public class Uploader {
                 }
             }
         } catch (Exception e) {
-            log.debug(e.getMessage());
+            log.error(e.getMessage());
         }
         return null;
     }
@@ -384,7 +385,7 @@ public class Uploader {
                 String token = br.readLine();
                 return token;
             } catch (Exception e) {
-                log.debug(e.getMessage());
+                log.error(e.getMessage());
             }
         }
         return "";
