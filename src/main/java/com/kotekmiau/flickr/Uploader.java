@@ -38,6 +38,7 @@ import com.aetrion.flickr.RequestContext;
 import com.aetrion.flickr.auth.Auth;
 import com.aetrion.flickr.auth.AuthInterface;
 import com.aetrion.flickr.auth.Permission;
+import com.aetrion.flickr.photos.Permissions;
 import com.aetrion.flickr.photos.Photo;
 import com.aetrion.flickr.photos.PhotoList;
 import com.aetrion.flickr.photos.SearchParameters;
@@ -208,7 +209,22 @@ public class Uploader {
                 		Photo p = (Photo) o1;
                 		if(a.contains(p.getTitle())) {
                 			log.info("FOUND PUBLIC: "+p.getTitle() + " [id: "+p.getId()+", photoset_id: "+s.getId()+"]");
+                			
+                			/**
+                			 * set permissions
+                			 */
+                			// Permissions perm = p.getPermissions();
+                			Permissions perm = new Permissions();
+                			perm.setPublicFlag(true);
+                			f.getPhotosInterface().setPerms(p.getId(), perm);
                 			found++;
+                			
+                			/**
+                			 * for testing NOW
+                			 */
+                			if(found > 10) {
+                				System.exit(0);
+                			}
                 		}
                 	}
                 	if(page == 1) {
