@@ -209,15 +209,20 @@ public class Uploader {
                 		Photo p = (Photo) o1;
                 		if(a.contains(p.getTitle())) {
                 			log.info("FOUND PUBLIC: "+p.getTitle() + " [id: "+p.getId()+", photoset_id: "+s.getId()+"]");
+                			found++;
                 			
                 			/**
                 			 * set permissions
-                			 */
-                			// Permissions perm = p.getPermissions();
+                			 *
                 			Permissions perm = new Permissions();
                 			perm.setPublicFlag(true);
                 			f.getPhotosInterface().setPerms(p.getId(), perm);
-                			found++;
+                			*/
+                			
+                			/**
+                			 * set tags
+                			 */
+                			f.getPhotosInterface().setTags(p.getId(), new String[]{"public"});
                 			
                 			/**
                 			 * for testing NOW
