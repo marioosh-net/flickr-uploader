@@ -22,6 +22,7 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Properties;
+import java.util.Scanner;
 import javax.xml.parsers.ParserConfigurationException;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -81,6 +82,7 @@ public class Uploader {
      */
     static String token = "";
     static String dir = ".";
+    static String pub = null;
     static boolean saveToken = true;
     static boolean nq = false;
 
@@ -92,6 +94,7 @@ public class Uploader {
             options.addOption("ns", false, "no save token");
             options.addOption("nq", false, "don't ask questions");
             options.addOption("h", false, "help");
+            options.addOption("pub", true, "file with permissions to parse");
 
             log.info("HOME: "+ System.getProperty("user.home"));
 
@@ -117,9 +120,13 @@ public class Uploader {
             if(cmd.hasOption("nq")) {
                 nq = true;
             }
+            if(cmd.hasOption("pub")) {
+            	pub = cmd.getOptionValue("pub");
+            }
 
             new Uploader();
         } catch (Exception e) {
+        	e.printStackTrace();
             log.debug(e.getMessage());
         }
     }
@@ -130,6 +137,14 @@ public class Uploader {
 			if(auth != null) {
 				getSets();
 	            if (auth.getPermission().equals(Permission.WRITE) || auth.getPermission().equals(Permission.DELETE)) {
+	            	if (pub != null) {
+						Console c = System.console();
+						String yn = c.readLine("\nParse \"" + pub + "\" to set public photos (y/n) ? ");
+						if (yn.equalsIgnoreCase("y")) {
+							publicPhotos(pub);
+						}	            		
+	            		return;
+	            	}
 					if (nq) {
 						uploadDir(dir);
 					} else {
@@ -147,7 +162,77 @@ public class Uploader {
 		}
     }
 
-    /**
+    private void publicPhotos(String pub) {
+    	SearchParameters params = new SearchParameters();
+    	
+    	ArrayList<String> a = new ArrayList<String>();
+    	
+    	try {
+	    	BufferedReader br = new BufferedReader(new FileReader(pub));
+	    	String line;
+	    	while ((line = br.readLine()) != null) {
+	    		if(line.startsWith("^")) {
+	    			a.add(line.substring(1));
+	    			
+	    			/*
+	    			log.info("Searching by text for \""+line.substring(1)+"\"...");
+	    			params.setUserId(f.getAuth().getUser().getId());
+	    			params.setText(line.substring(1));
+		        	PhotoList pl = f.getPhotosInterface().search(params, 5, 1);
+		        	if(!pl.isEmpty()) {
+		        		for(Object o: pl) {
+		        			Photo p = (Photo) o;
+		        			log.info("FOUND: "+p.getTitle());
+		        		}
+		        	}
+		        	*/
+	    		}
+	    	}
+	    	br.close();
+	    	log.info("Public photos to find: "+a.size());
+	    	
+	    	// wychodzac od albumow
+            Photosets sets = f.getPhotosetsInterface().getList(auth.getUser().getId());
+            if(sets.getPhotosets().size() == 0) {
+            	log.debug("No Photosets");
+            }
+            int found = 0;
+            for (Object o : sets.getPhotosets()) {
+                Photoset s = (Photoset) o;
+            	log.info("Searching in \""+s.getTitle()+"\" photoset...");
+                int page = 1;
+                int pages = 0;
+                do {
+                	PhotoList pl = f.getPhotosetsInterface().getPhotos(s.getId(), 500, page);
+                	for(Object o1: pl) {
+                		Photo p = (Photo) o1;
+                		if(a.contains(p.getTitle())) {
+                			log.info("FOUND PUBLIC: "+p.getTitle() + " [id: "+p.getId()+", photoset_id: "+s.getId()+"]");
+                			found++;
+                		}
+                	}
+                	if(page == 1) {
+                		pages = pl.getPages();
+                	}
+                	
+                } while (page++ < pages);
+                
+                log.debug(String.format("%-50s%s %d", s.getTitle(), s.getId(), s.getPhotoCount()));
+            }
+            
+            log.info("Found photos: "+found);
+	    	
+    	} catch (FlickrException e) {
+    		e.printStackTrace();
+    	} catch (IOException e) {
+			e.printStackTrace();
+		} catch (SAXException e) {
+			e.printStackTrace();
+		}
+    	
+	}
+
+	/**
      * Authentication
      * @return Auth object
      * @throws Exception
@@ -170,8 +255,10 @@ public class Uploader {
         	in1 = new FileInputStream(f);
             properties.load(in1);
         } catch (FileNotFoundException e) {
-			log.debug(e.getMessage());
+			e.printStackTrace();
+        	log.debug(e.getMessage());
 		} catch (IOException e) {
+			e.printStackTrace();
 			log.debug(e.getMessage());
 		} finally {
             in1.close();        	
@@ -198,7 +285,8 @@ public class Uploader {
                 return auth;
                 
             } catch (FlickrException e) {
-                log.debug(e.getMessage());
+            	e.printStackTrace();
+            	log.debug(e.getMessage());
             }
         } else {
             try {
@@ -219,6 +307,7 @@ public class Uploader {
                 return auth;
                 
             } catch (FlickrException e) {
+            	e.printStackTrace();
             	log.error(e);
                 log.debug(e.getMessage());
             }
@@ -227,12 +316,12 @@ public class Uploader {
     }
     
     private void tokenInfo(Auth auth) {
-    	log.debug("-- AUTH --");
+    	log.info("-- AUTH --");
     	log.debug(String.format("Token      :%s", auth.getToken()));
-        log.debug(String.format("nsid       :%s", auth.getUser().getId()));
-        log.debug(String.format("Realname   :%s", auth.getUser().getRealName()));
-        log.debug(String.format("Username   :%s", auth.getUser().getUsername()));
-        log.debug(String.format("Permission :%s", auth.getPermission()));
+        log.info(String.format("nsid       :%s", auth.getUser().getId()));
+        log.info(String.format("Realname   :%s", auth.getUser().getRealName()));
+        log.info(String.format("Username   :%s", auth.getUser().getUsername()));
+        log.info(String.format("Permission :%s", auth.getPermission()));
     }
 
     /**
