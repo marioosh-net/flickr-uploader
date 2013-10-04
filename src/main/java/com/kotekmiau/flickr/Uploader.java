@@ -213,11 +213,11 @@ public class Uploader {
                 			
                 			/**
                 			 * set permissions
-                			 *
+                			 */
                 			Permissions perm = new Permissions();
-                			perm.setPublicFlag(true);
+                			perm.setFamilyFlag(true); // is_family=1
+                			perm.setFriendFlag(true); // is_friend=1
                 			f.getPhotosInterface().setPerms(p.getId(), perm);
-                			*/
                 			
                 			/**
                 			 * set tags
