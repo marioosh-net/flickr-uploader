@@ -201,10 +201,14 @@ public class Uploader {
 	        	log.debug("No Photosets");
 	        }
 
-	        File ff = File.createTempFile("todelete", "photos");
+	        File ff = File.createTempFile("todelete", ".photos");
             log.info(ff.getAbsolutePath());
             FileWriter fw = new FileWriter(ff);
-	        
+
+	        File ff1 = File.createTempFile("okey", ".photos");
+            log.info(ff1.getAbsolutePath());
+            FileWriter fw1 = new FileWriter(ff1);
+            
 	        for (Object o : sets.getPhotosets()) {
 	            Photoset s = (Photoset) o;
 	            if(s.getTitle().equals(deleteDoubleOneTitle)) {
@@ -234,12 +238,33 @@ public class Uploader {
 		            String psPopId = null;
 		            for(Photo1 p2: todelete) {
 		            	if(p2.photosetId != psPopId) {
-		            		fw.write(">"+p2.photosetId+":"+p2.photosetTitle);
+		            		fw.write(">"+p2.photosetId+":"+p2.photosetTitle+"\n");
 		            	}
-	            		fw.write("+"+p2.id+":"+p2.title);	            	
+	            		fw.write("+"+p2.id+":"+p2.title+"\n");	            	
 		            	psPopId = p2.photosetId;
+		            	
+		            	/**
+		            	 * DELETE !
+		            	 */
+		            	try {
+		            		f.getPhotosInterface().delete(p2.id);
+		            		log.info("Delete photo ID: "+p2.id +"("+p2.photosetTitle+") DONE.");
+		            	} catch (Exception e) {
+		            		log.info("Delete photo ID: "+p2.id +"("+p2.photosetTitle+") FAILS.");	            		
+		            		e.printStackTrace();
+		            	}
+		            	
 		            }
 		            fw.close();
+
+		            for(Photo1 p2: ok) {
+		            	if(p2.photosetId != psPopId) {
+		            		fw1.write(">"+p2.photosetId+":"+p2.photosetTitle+"\n");
+		            	}
+	            		fw1.write("+"+p2.id+":"+p2.title+"\n");	            	
+		            	psPopId = p2.photosetId;
+		            }
+		            fw1.close();
 		            
 		            log.info("OK       : "+ok.size());
 		            log.info("TO DELETE: "+todelete.size());
@@ -287,14 +312,15 @@ public class Uploader {
             log.info(ff.getAbsolutePath());
             FileWriter fw = new FileWriter(ff);
 
-            Set<Photo1> ok = new HashSet<Photo1>();
-            Set<Photo1> todelete = new HashSet<Photo1>();
 	        
 	        for (Object o : sets.getPhotosets()) {
 	            Photoset s = (Photoset) o;
 	        	log.info("Searching in \""+s.getTitle()+"\" photoset...");
 	            int page = 1;
 	            int pages = 0;
+
+	            Set<Photo1> ok = new HashSet<Photo1>();
+	            Set<Photo1> todelete = new HashSet<Photo1>();
 	            
 	            /**
 	             * bulid full list
@@ -316,17 +342,28 @@ public class Uploader {
 	            String psPopId = null;
 	            for(Photo1 p2: todelete) {
 	            	if(p2.photosetId != psPopId) {
-	            		fw.write(">"+p2.photosetId+":"+p2.photosetTitle);
+	            		fw.write(">"+p2.photosetId+":"+p2.photosetTitle+"\n");
 	            	}
-            		fw.write("+"+p2.id+":"+p2.title);	            	
+            		fw.write("+"+p2.id+":"+p2.title+"\n");	            	
 	            	psPopId = p2.photosetId;
+	            	
+	            	/**
+	            	 * DELETE !
+	            	 */
+	            	try {
+	            		f.getPhotosInterface().delete(p2.id);
+	            		log.info("Delete photo ID: "+p2.id +"("+p2.photosetTitle+") DONE.");
+	            	} catch (Exception e) {
+	            		log.info("Delete photo ID: "+p2.id +"("+p2.photosetTitle+") FAILS.");	            		
+	            		e.printStackTrace();
+	            	}
 	            }
-	            fw.close();
 	            
 	            log.info("OK       : "+ok.size());
 	            log.info("TO DELETE: "+todelete.size());
 	            
 	        }
+            fw.close();	        
     	} catch (FlickrException e) {
     		e.printStackTrace();
     	} catch (IOException e) {
@@ -712,5 +749,9 @@ class Photo1 {
 			}
 		}
 		return false;
+	}
+	@Override
+	public int hashCode() {
+		return this.photosetTitle.hashCode();
 	}
 }
