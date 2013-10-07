@@ -226,6 +226,9 @@ public class Uploader {
 		            			todelete.add(p1);
 		            		}
 		            	}
+	                	if(page == 1) {
+	                		pages = pl.getPages();
+	                	}
 		            } while (page++ < pages);
 		            
 		            String psPopId = null;
@@ -305,6 +308,9 @@ public class Uploader {
 	            			todelete.add(p1);
 	            		}
 	            	}
+                	if(page == 1) {
+                		pages = pl.getPages();
+                	}
 	            } while (page++ < pages);
 	            
 	            String psPopId = null;
