@@ -18,11 +18,14 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Properties;
 import java.util.Scanner;
+import java.util.Set;
 import javax.xml.parsers.ParserConfigurationException;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -82,20 +85,27 @@ public class Uploader {
      * params
      */
     static String token = "";
-    static String dir = ".";
+    static String dir;
     static String pub = null;
     static boolean saveToken = true;
     static boolean nq = false;
+    static boolean deleteDouble = false;
+    static boolean deleteDoubleOne = false;
+    static String deleteDoubleOneTitle;
+    static boolean list = false;
 
     public static void main(String[] args) {
         try {
             Options options = new Options();
             options.addOption("t", true, "auth token");
             options.addOption("d", true, "directory to upload");
+            options.addOption("l", false, "list sets");
             options.addOption("ns", false, "no save token");
             options.addOption("nq", false, "don't ask questions");
             options.addOption("h", false, "help");
             options.addOption("pub", true, "file with permissions to parse");
+            options.addOption("dd", false, "delete double photos in all albums");
+            options.addOption("dd1", true, "delete double photos in one album");
 
             log.info("HOME: "+ System.getProperty("user.home"));
 
@@ -124,6 +134,16 @@ public class Uploader {
             if(cmd.hasOption("pub")) {
             	pub = cmd.getOptionValue("pub");
             }
+            if(cmd.hasOption("dd")) {
+            	deleteDouble = true;
+            }
+            if(cmd.hasOption("dd1")) {
+            	deleteDoubleOne = true;
+            	deleteDoubleOneTitle = cmd.getOptionValue("dd1");
+            }
+            if(cmd.hasOption("l")) {
+            	list = true;
+            }            
 
             new Uploader();
         } catch (Exception e) {
@@ -138,6 +158,15 @@ public class Uploader {
 			if(auth != null) {
 				getSets();
 	            if (auth.getPermission().equals(Permission.WRITE) || auth.getPermission().equals(Permission.DELETE)) {
+	            	if(list) {
+	            		listSets();
+	            	}
+	            	if(deleteDoubleOne && deleteDoubleOneTitle != null) {
+	            		deleteDoubleOne();
+	            	}
+	            	if(deleteDouble) {
+	            		deleteDouble();
+	            	}
 	            	if (pub != null) {
 						Console c = System.console();
 						String yn = c.readLine("\nParse \"" + pub + "\" to set public photos (y/n) ? ");
@@ -146,15 +175,17 @@ public class Uploader {
 						}	            		
 	            		return;
 	            	}
-					if (nq) {
-						uploadDir(dir);
-					} else {
-						Console c = System.console();
-						String yn = c.readLine("\nUpload \"" + dir + "\" directory (y/n) ? ");
-						if (yn.equalsIgnoreCase("y")) {
+	            	if(dir != null) {
+						if (nq) {
 							uploadDir(dir);
+						} else {
+							Console c = System.console();
+							String yn = c.readLine("\nUpload \"" + dir + "\" directory (y/n) ? ");
+							if (yn.equalsIgnoreCase("y")) {
+								uploadDir(dir);
+							}
 						}
-					}
+	            	}
 	            }
 			}
 		} catch (Exception e) {
@@ -163,7 +194,143 @@ public class Uploader {
 		}
     }
 
-    private void publicPhotos(String pub) {
+    private void deleteDoubleOne() {
+    	try {
+	        Photosets sets = f.getPhotosetsInterface().getList(auth.getUser().getId());
+	        if(sets.getPhotosets().size() == 0) {
+	        	log.debug("No Photosets");
+	        }
+
+	        File ff = File.createTempFile("todelete", "photos");
+            log.info(ff.getAbsolutePath());
+            FileWriter fw = new FileWriter(ff);
+	        
+	        for (Object o : sets.getPhotosets()) {
+	            Photoset s = (Photoset) o;
+	            if(s.getTitle().equals(deleteDoubleOneTitle)) {
+	            	log.info("Searching in \""+s.getTitle()+"\" photoset...");
+		            Set<Photo1> ok = new HashSet<Photo1>();
+		            Set<Photo1> todelete = new HashSet<Photo1>();
+
+		            /**
+		             * bulid full list
+		             */
+		            int page = 1;
+		            int pages = 0;
+		            do {
+		            	PhotoList pl = f.getPhotosetsInterface().getPhotos(s.getId(), 500, page);
+		            	for(Object o1: pl) {
+		            		Photo p = (Photo) o1;
+		            		Photo1 p1 = new Photo1(p.getTitle(), p.getId(), s.getTitle(), s.getId());
+		            		if(!ok.add(p1)) {
+		            			todelete.add(p1);
+		            		}
+		            	}
+		            } while (page++ < pages);
+		            
+		            String psPopId = null;
+		            for(Photo1 p2: todelete) {
+		            	if(p2.photosetId != psPopId) {
+		            		fw.write(">"+p2.photosetId+":"+p2.photosetTitle);
+		            	}
+	            		fw.write("+"+p2.id+":"+p2.title);	            	
+		            	psPopId = p2.photosetId;
+		            }
+		            fw.close();
+		            
+		            log.info("OK       : "+ok.size());
+		            log.info("TO DELETE: "+todelete.size());
+		            
+	            	break;
+	            }
+	        }
+    	} catch (FlickrException e) {
+    		e.printStackTrace();
+    	} catch (IOException e) {
+			e.printStackTrace();
+		} catch (SAXException e) {
+			e.printStackTrace();
+		}
+	}
+
+	private void listSets() {
+    	try {
+	        Photosets sets = f.getPhotosetsInterface().getList(auth.getUser().getId());
+	        if(sets.getPhotosets().size() == 0) {
+	        	log.debug("No Photosets");
+	        } else {
+	        	for(Object o: sets.getPhotosets()) {
+	        		Photoset s = (Photoset) o;
+	        		System.out.println(s.getTitle() + " "+s.getPhotoCount());
+	        	}
+	        }
+    	} catch (FlickrException e) {
+    		e.printStackTrace();
+    	} catch (IOException e) {
+			e.printStackTrace();
+		} catch (SAXException e) {
+			e.printStackTrace();
+		}
+	}
+    
+    private void deleteDouble() {
+    	try {
+	        Photosets sets = f.getPhotosetsInterface().getList(auth.getUser().getId());
+	        if(sets.getPhotosets().size() == 0) {
+	        	log.debug("No Photosets");
+	        }
+
+	        File ff = File.createTempFile("todelete", "photos");
+            log.info(ff.getAbsolutePath());
+            FileWriter fw = new FileWriter(ff);
+
+            Set<Photo1> ok = new HashSet<Photo1>();
+            Set<Photo1> todelete = new HashSet<Photo1>();
+	        
+	        for (Object o : sets.getPhotosets()) {
+	            Photoset s = (Photoset) o;
+	        	log.info("Searching in \""+s.getTitle()+"\" photoset...");
+	            int page = 1;
+	            int pages = 0;
+	            
+	            /**
+	             * bulid full list
+	             */
+	            do {
+	            	PhotoList pl = f.getPhotosetsInterface().getPhotos(s.getId(), 500, page);
+	            	for(Object o1: pl) {
+	            		Photo p = (Photo) o1;
+	            		Photo1 p1 = new Photo1(p.getTitle(), p.getId(), s.getTitle(), s.getId());
+	            		if(!ok.add(p1)) {
+	            			todelete.add(p1);
+	            		}
+	            	}
+	            } while (page++ < pages);
+	            
+	            String psPopId = null;
+	            for(Photo1 p2: todelete) {
+	            	if(p2.photosetId != psPopId) {
+	            		fw.write(">"+p2.photosetId+":"+p2.photosetTitle);
+	            	}
+            		fw.write("+"+p2.id+":"+p2.title);	            	
+	            	psPopId = p2.photosetId;
+	            }
+	            fw.close();
+	            
+	            log.info("OK       : "+ok.size());
+	            log.info("TO DELETE: "+todelete.size());
+	            
+	        }
+    	} catch (FlickrException e) {
+    		e.printStackTrace();
+    	} catch (IOException e) {
+			e.printStackTrace();
+		} catch (SAXException e) {
+			e.printStackTrace();
+		}
+	}
+
+	private void publicPhotos(String pub) {
     	SearchParameters params = new SearchParameters();
     	
     	ArrayList<String> a = new ArrayList<String>();
@@ -516,4 +683,28 @@ public class Uploader {
 			log.debug(e.getMessage());
 		}
     }
+}
+
+class Photo1 {
+	String photosetId;
+	String photosetTitle;
+	String title;
+	String id;
+	public Photo1(String title, String id, String photosetTitle, String photosetId) {
+		super();
+		this.title = title;
+		this.id = id;
+		this.photosetId = photosetId;
+		this.photosetTitle = photosetTitle;
+	}
+	@Override
+	public boolean equals(Object obj) {
+		if(obj instanceof Photo1) {
+			Photo1 p1 = (Photo1) obj;
+			if(p1.title.equals(this.title)) {
+				return true;
+			}
+		}
+		return false;
+	}
 }
