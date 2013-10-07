@@ -86,6 +86,7 @@ public class Uploader {
      */
     static String token = "";
     static String dir;
+    static boolean noSubsAlbum;
     static String pub = null;
     static boolean saveToken = true;
     static boolean nq = false;
@@ -99,6 +100,7 @@ public class Uploader {
             Options options = new Options();
             options.addOption("t", true, "auth token");
             options.addOption("d", true, "directory to upload");
+            options.addOption("d1", false, "don't create new sets for subdirectories");
             options.addOption("l", false, "list sets");
             options.addOption("ns", false, "no save token");
             options.addOption("nq", false, "don't ask questions");
@@ -125,6 +127,9 @@ public class Uploader {
             if (cmd.hasOption("d")) {
                 dir = cmd.getOptionValue("d");
             }
+            if (cmd.hasOption("d1")) {
+            	noSubsAlbum = true;
+            }            
             if (cmd.hasOption("ns")) {
             	saveToken = false;
             }
@@ -177,12 +182,12 @@ public class Uploader {
 	            	}
 	            	if(dir != null) {
 						if (nq) {
-							uploadDir(dir);
+							uploadDir(dir, !noSubsAlbum, null);
 						} else {
 							Console c = System.console();
 							String yn = c.readLine("\nUpload \"" + dir + "\" directory (y/n) ? ");
 							if (yn.equalsIgnoreCase("y")) {
-								uploadDir(dir);
+								uploadDir(dir, !noSubsAlbum, null);
 							}
 						}
 	            	}
@@ -559,8 +564,8 @@ public class Uploader {
      * upload files from directory dir and subdirectories
      * @param dir
      */
-    private void uploadDir(String dir) {
-        Photoset s = null;
+    private void uploadDir(String dir, boolean subDirAsNewAlbum, Photoset s1) {
+        Photoset s = s1;
         com.aetrion.flickr.uploader.Uploader uploader = f.getUploader();
         File[] l = new File(dir).listFiles();
         Arrays.sort(l, new Comparator<File>() {
@@ -601,7 +606,9 @@ public class Uploader {
                     sb.append(", Tags: " + new HashSet<String>(tags));
                     
                     if (i == 0) {
-                        s = findSet(new File(dir).getName());
+                    	if(s != null) {
+                    		s = findSet(new File(dir).getName());
+                    	}
                         if (s == null) {
                             try {
                             	
@@ -630,7 +637,7 @@ public class Uploader {
                 log.info(sb.toString());
             }
             if (p.isDirectory()) {
-                uploadDir(p.getAbsolutePath());
+                uploadDir(p.getAbsolutePath(), subDirAsNewAlbum, subDirAsNewAlbum ? null : s);
             }
             i++;
         }
