@@ -605,27 +605,21 @@ public class Uploader {
                     f.getPhotosInterface().addTags(photoId, tags.toArray(new String[tags.size()]));
                     sb.append(", Tags: " + new HashSet<String>(tags));
                     
-                    if (i == 0) {
-                    	if(s != null) {
-                    		s = findSet(new File(dir).getName());
-                    	}
+                    if(s == null) {
+                    	s = findSet(new File(dir).getName());
                         if (s == null) {
                             try {
-                            	
                                 s = f.getPhotosetsInterface().create(title, "", photoId);
                                 sb.append(", photosetId: "+ s.getId() + " (new); ");
-
                             } catch (Exception e1) {
                             	log.error(e1.getMessage());
                                 sb.append(" >>> "+e1.getMessage());
                             }
                         }
                     } else {
-                        if (s != null) {
-                            // add photo to photoset
-                            f.getPhotosetsInterface().addPhoto(s.getId(), photoId);
-                            sb.append(", photosetId: "+ s.getId() + "; ");
-                        }
+                        // add photo to photoset
+                        f.getPhotosetsInterface().addPhoto(s.getId(), photoId);
+                        sb.append(", photosetId: "+ s.getId() + "; ");
                     }
 
                 } catch (Exception e) {
