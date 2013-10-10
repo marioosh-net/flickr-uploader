@@ -174,8 +174,9 @@ public class Uploader {
 	            		deleteDouble();
 	            	}
 	            	if (pub != null) {
-						Console c = System.console();
-						String yn = c.readLine("\nParse \"" + pub + "\" to set public photos (y/n) ? ");
+	            		System.out.print("\nParse \"" + pub + "\" to set public photos (y/n) ? ");
+	            		BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(System.in));
+	            		String yn = bufferedReader.readLine();
 						if (yn.equalsIgnoreCase("y")) {
 							publicPhotos(pub);
 						}	            		
@@ -391,10 +392,11 @@ public class Uploader {
     		public String toString() {
     			StringBuffer sb = new StringBuffer();
     			for(String key: this.keySet()) {
-    				sb.append(key+"\n");
+    				sb.append(key+" [");
     				for(String p: this.get(key)) {
-    					sb.append(">>>"+p+"\n");
+    					sb.append(p+", ");
     				}
+    				sb.append("]\n");
     			}
     			return sb.toString();
     		}
@@ -428,8 +430,13 @@ public class Uploader {
             	log.debug("No Photosets");
             }
             int found = 0;
+            
+            log.info("Photosets size: "+sets.getPhotosets().size());
+            
             for (Object o : sets.getPhotosets()) {
                 Photoset s = (Photoset) o;
+                
+                log.info("I have a \""+s.getTitle()+"\" photoset.");
                 
                 List<String> photosForPublicationInAlbum = a.get(s.getTitle());
                 if(photosForPublicationInAlbum != null) {
@@ -456,14 +463,7 @@ public class Uploader {
 	                			/**
 	                			 * set tags
 	                			 */
-	                			f.getPhotosInterface().setTags(p.getId(), new String[]{"public"});
-	                			
-	                			/**
-	                			 * for testing NOW
-	                			 */
-	                			if(found > 10) {
-	                				System.exit(0);
-	                			}
+	                			f.getPhotosInterface().setTags(p.getId(), new String[]{"public"});	                			
 	                		}
 	                	}
 	                	if(page == 1) {
