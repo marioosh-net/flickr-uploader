@@ -21,6 +21,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
@@ -380,32 +381,46 @@ public class Uploader {
 
 	private void publicPhotos(String pub) {
     	SearchParameters params = new SearchParameters();
-    	
-    	ArrayList<String> a = new ArrayList<String>();
+
+    	/**
+    	 * key - album title
+    	 * value - list of photos titles
+    	 */
+    	HashMap<String, List<String>> a = new HashMap<String, List<String>>(){
+    		@Override
+    		public String toString() {
+    			StringBuffer sb = new StringBuffer();
+    			for(String key: this.keySet()) {
+    				sb.append(key+"\n");
+    				for(String p: this.get(key)) {
+    					sb.append(">>>"+p+"\n");
+    				}
+    			}
+    			return sb.toString();
+    		}
+    	};
     	
     	try {
 	    	BufferedReader br = new BufferedReader(new FileReader(pub));
 	    	String line;
+	    	List<String> photosList = null;
+	    	String albumTitle = null;
+	    	String linePop = null;
 	    	while ((line = br.readLine()) != null) {
-	    		if(line.startsWith("^")) {
-	    			a.add(line.substring(1));
-	    			
-	    			/*
-	    			log.info("Searching by text for \""+line.substring(1)+"\"...");
-	    			params.setUserId(f.getAuth().getUser().getId());
-	    			params.setText(line.substring(1));
-		        	PhotoList pl = f.getPhotosInterface().search(params, 5, 1);
-		        	if(!pl.isEmpty()) {
-		        		for(Object o: pl) {
-		        			Photo p = (Photo) o;
-		        			log.info("FOUND: "+p.getTitle());
-		        		}
-		        	}
-		        	*/
+	    		if(!line.startsWith("^")) {
+	    			if(linePop != null) {
+	    				a.put(albumTitle, photosList);
+	    			}
+	    			photosList = new ArrayList<String>();
+	    			albumTitle = line;
+	    		} else {
+	    			photosList.add(line.substring(1));
 	    		}
+	    		linePop = line;
 	    	}
 	    	br.close();
 	    	log.info("Public photos to find: "+a.size());
+	    	log.debug(a);
 	    	
 	    	// wychodzac od albumow
             Photosets sets = f.getPhotosetsInterface().getList(auth.getUser().getId());
@@ -415,45 +430,50 @@ public class Uploader {
             int found = 0;
             for (Object o : sets.getPhotosets()) {
                 Photoset s = (Photoset) o;
-            	log.info("Searching in \""+s.getTitle()+"\" photoset...");
-                int page = 1;
-                int pages = 0;
-                do {
-                	PhotoList pl = f.getPhotosetsInterface().getPhotos(s.getId(), 500, page);
-                	for(Object o1: pl) {
-                		Photo p = (Photo) o1;
-                		if(a.contains(p.getTitle())) {
-                			log.info("FOUND PUBLIC: "+p.getTitle() + " [id: "+p.getId()+", photoset_id: "+s.getId()+"]");
-                			found++;
-                			
-                			/**
-                			 * set permissions
-                			 */
-                			Permissions perm = new Permissions();
-                			perm.setFamilyFlag(true); // is_family=1
-                			perm.setFriendFlag(true); // is_friend=1
-                			f.getPhotosInterface().setPerms(p.getId(), perm);
-                			
-                			/**
-                			 * set tags
-                			 */
-                			f.getPhotosInterface().setTags(p.getId(), new String[]{"public"});
-                			
-                			/**
-                			 * for testing NOW
-                			 */
-                			if(found > 10) {
-                				System.exit(0);
-                			}
-                		}
-                	}
-                	if(page == 1) {
-                		pages = pl.getPages();
-                	}
-                	
-                } while (page++ < pages);
                 
-                log.debug(String.format("%-50s%s %d", s.getTitle(), s.getId(), s.getPhotoCount()));
+                List<String> photosForPublicationInAlbum = a.get(s.getTitle());
+                if(photosForPublicationInAlbum != null) {
+	                
+	            	log.info("Searching in \""+s.getTitle()+"\" photoset...");
+	                int page = 1;
+	                int pages = 0;
+	                do {
+	                	PhotoList pl = f.getPhotosetsInterface().getPhotos(s.getId(), 500, page);
+	                	for(Object o1: pl) {
+	                		Photo p = (Photo) o1;
+	                		if(photosForPublicationInAlbum.contains(p.getTitle())) {
+	                			log.info("FOUND PUBLIC: "+p.getTitle() + " [id: "+p.getId()+", photoset_id: "+s.getId()+"]");
+	                			found++;
+	                			
+	                			/**
+	                			 * set permissions
+	                			 */
+	                			Permissions perm = new Permissions();
+	                			perm.setFamilyFlag(true); // is_family=1
+	                			perm.setFriendFlag(true); // is_friend=1
+	                			f.getPhotosInterface().setPerms(p.getId(), perm);
+	                			
+	                			/**
+	                			 * set tags
+	                			 */
+	                			f.getPhotosInterface().setTags(p.getId(), new String[]{"public"});
+	                			
+	                			/**
+	                			 * for testing NOW
+	                			 */
+	                			if(found > 10) {
+	                				System.exit(0);
+	                			}
+	                		}
+	                	}
+	                	if(page == 1) {
+	                		pages = pl.getPages();
+	                	}
+	                	
+	                } while (page++ < pages);
+	                
+	                log.debug(String.format("%-50s%s %d", s.getTitle(), s.getId(), s.getPhotoCount()));
+                }
             }
             
             log.info("Found photos: "+found);
