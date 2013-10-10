@@ -446,9 +446,20 @@ public class Uploader {
 	                int pages = 0;
 	                do {
 	                	PhotoList pl = f.getPhotosetsInterface().getPhotos(s.getId(), 500, page);
+	                	int c = 0;
 	                	for(Object o1: pl) {
 	                		Photo p = (Photo) o1;
 	                		if(photosForPublicationInAlbum.contains(p.getTitle())) {
+	                			
+	                			/**
+	                			 * public albums have description...
+	                			 */
+	                			// f.getPhotosetsInterface().editMeta(s.getId(), s.getTitle(), "\u00A0");
+	                			if(c == 0) {
+	                				f.getPhotosetsInterface().editMeta(s.getId(), s.getTitle(), "\ufeff");
+	                			}
+	                			c++;
+	                			
 	                			log.info("FOUND PUBLIC: "+p.getTitle() + " [id: "+p.getId()+", photoset_id: "+s.getId()+"]");
 	                			found++;
 	                			
