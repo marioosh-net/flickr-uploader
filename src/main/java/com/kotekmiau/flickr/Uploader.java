@@ -380,6 +380,19 @@ public class Uploader {
 		}
 	}
 
+    /**
+     * list files to public - file format:
+     * album_title1
+     * ^file1.jpg
+     * ^file2.jpg
+     * ...
+     * album_title2
+     * ^file1.jpg
+     * ^file2.jpg
+     * ...
+     * 
+     * @param pub
+     */
 	private void publicPhotos(String pub) {
     	SearchParameters params = new SearchParameters();
 
@@ -406,15 +419,12 @@ public class Uploader {
 	    	BufferedReader br = new BufferedReader(new FileReader(pub));
 	    	String line;
 	    	List<String> photosList = null;
-	    	String albumTitle = null;
 	    	String linePop = null;
 	    	while ((line = br.readLine()) != null) {
 	    		if(!line.startsWith("^")) {
-	    			if(linePop != null) {
-	    				a.put(albumTitle, photosList);
-	    			}
 	    			photosList = new ArrayList<String>();
-	    			albumTitle = line;
+	    			log.info("add ablum to find list: \""+line.trim()+"\"");
+	    			a.put(line.trim(), photosList);	    			
 	    		} else {
 	    			photosList.add(line.substring(1));
 	    		}
@@ -438,7 +448,7 @@ public class Uploader {
                 
                 log.info("I have a \""+s.getTitle()+"\" photoset.");
                 
-                List<String> photosForPublicationInAlbum = a.get(s.getTitle());
+                List<String> photosForPublicationInAlbum = a.get(s.getTitle().trim());
                 if(photosForPublicationInAlbum != null) {
 	                
 	            	log.info("Searching in \""+s.getTitle()+"\" photoset...");
