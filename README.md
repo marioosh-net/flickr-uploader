@@ -26,8 +26,12 @@ secret=SECRET...</code></pre>
 
 Usage
 -----
-<pre><code>usage: java -jar flickr-uploader.jar
- -d &lt;arg&gt;   directory to upload
- -h         help
- -ns        no save token
- -t &lt;arg&gt;   auth token</code></pre>
+ ```
+usage: java -jar flickr-uploader.jar
+ -d <arg>    directory to upload
+ -h          help
+ -nq         don't ask questions
+ -ns         no save token
+ -t <arg>    auth token
+ -ts <arg>   auth token secret
+ ```
