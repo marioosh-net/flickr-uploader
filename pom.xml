@@ -33,9 +33,9 @@
 	</build>
 	<dependencies>
 		<dependency>
-			<groupId>com.aetrion.flickr</groupId>
-			<artifactId>flickrapi</artifactId>
-			<version>1.1</version>
+		  <groupId>com.flickr4java</groupId>
+		  <artifactId>flickr4java</artifactId>
+		  <version>2.11</version>
 		</dependency>
 		<dependency>
 			<groupId>commons-cli</groupId>

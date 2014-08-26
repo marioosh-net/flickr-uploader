@@ -22,6 +22,7 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Properties;
+import java.util.Scanner;
 import javax.xml.parsers.ParserConfigurationException;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -29,26 +30,28 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.PosixParser;
 import org.apache.log4j.Logger;
+import org.scribe.model.Token;
+import org.scribe.model.Verifier;
 import org.xml.sax.SAXException;
-import com.aetrion.flickr.Flickr;
-import com.aetrion.flickr.FlickrException;
-import com.aetrion.flickr.REST;
-import com.aetrion.flickr.RequestContext;
-import com.aetrion.flickr.auth.Auth;
-import com.aetrion.flickr.auth.AuthInterface;
-import com.aetrion.flickr.auth.Permission;
-import com.aetrion.flickr.photos.Photo;
-import com.aetrion.flickr.photos.PhotoList;
-import com.aetrion.flickr.photos.SearchParameters;
-import com.aetrion.flickr.photosets.Photoset;
-import com.aetrion.flickr.photosets.Photosets;
-import com.aetrion.flickr.uploader.UploadMetaData;
-import com.aetrion.flickr.util.IOUtilities;
+import com.flickr4java.flickr.FlickrException;
+import com.flickr4java.flickr.REST;
+import com.flickr4java.flickr.RequestContext;
+import com.flickr4java.flickr.auth.Auth;
+import com.flickr4java.flickr.auth.AuthInterface;
+import com.flickr4java.flickr.auth.Permission;
+import com.flickr4java.flickr.photos.Photo;
+import com.flickr4java.flickr.photos.PhotoList;
+import com.flickr4java.flickr.photos.SearchParameters;
+import com.flickr4java.flickr.photosets.Photoset;
+import com.flickr4java.flickr.photosets.Photosets;
+import com.flickr4java.flickr.uploader.UploadMetaData;
+import com.flickr4java.flickr.util.IOUtilities;
 import com.drew.imaging.ImageMetadataReader;
 import com.drew.metadata.Directory;
 import com.drew.metadata.Metadata;
 import com.drew.metadata.exif.ExifDirectory;
 import com.drew.metadata.exif.ExifReader;
+import com.flickr4java.flickr.Flickr;
 
 /**
  * Flickr command-line uploader
@@ -80,6 +83,7 @@ public class Uploader {
      * params
      */
     static String token = "";
+    static String tokenSecret = "";
     static String dir = ".";
     static boolean saveToken = true;
     static boolean nq = false;
@@ -88,6 +92,7 @@ public class Uploader {
         try {
             Options options = new Options();
             options.addOption("t", true, "auth token");
+            options.addOption("ts", true, "auth token secret");
             options.addOption("d", true, "directory to upload");
             options.addOption("ns", false, "no save token");
             options.addOption("nq", false, "don't ask questions");
@@ -102,10 +107,14 @@ public class Uploader {
 	            HelpFormatter formatter = new HelpFormatter();
 	            formatter.printHelp("java -jar flickr-uploader.jar", options);
 	            log.debug("");
+	            System.exit(0);
             }
             
             if (cmd.hasOption("t")) {
                 token = cmd.getOptionValue("t");
+            }
+            if (cmd.hasOption("ts")) {
+                tokenSecret = cmd.getOptionValue("ts");
             }
 
             if (cmd.hasOption("d")) {
@@ -185,13 +194,17 @@ public class Uploader {
 
         AuthInterface authInterface = f.getAuthInterface();
         if (token.equals("")) {
-            token = readToken();
+            String[] tokenAndSecret = readToken();
+            if(tokenAndSecret != null) {
+	            token = tokenAndSecret[0];
+	            tokenSecret = tokenAndSecret[1];
+            }
         }
         if (!token.equals("")) {
             try {
-                auth = authInterface.checkToken(token);
+                auth = authInterface.checkToken(token, tokenSecret);
                 if(saveToken) {
-                	saveToken(token);
+                	saveToken(token, tokenSecret);
                 }
                 RequestContext.getRequestContext().setAuth(auth);
                 tokenInfo(auth);
@@ -202,17 +215,18 @@ public class Uploader {
             }
         } else {
             try {
-                final String frob = authInterface.getFrob();
-
-                URL url = authInterface.buildAuthenticationUrl(Permission.DELETE, frob);
-                System.out.println("Press return after you granted access at this URL:");
-                System.out.println(url.toExternalForm());
-                BufferedReader infile = new BufferedReader(new InputStreamReader(System.in));
-                String line = infile.readLine();
-
-                auth = authInterface.getToken(frob);
+            	Token requestToken = authInterface.getRequestToken();
+            	String urlString = authInterface.getAuthorizationUrl(requestToken, Permission.DELETE);
+            	System.out.println("Follow this URL to authorise yourself on Flickr");
+                System.out.println(urlString);
+                System.out.print("Paste in the token it gives you: ");
+                Scanner scanner = new Scanner(System.in);
+                String line = scanner.nextLine();                
+            	
+                Token accessToken = authInterface.getAccessToken(requestToken, new Verifier(line));
+                auth = authInterface.checkToken(accessToken);
                 if(saveToken) {
-                	saveToken(auth.getToken());
+                	saveToken(auth.getToken(), auth.getTokenSecret());
                 }
                 RequestContext.getRequestContext().setAuth(auth);
                 tokenInfo(auth);
@@ -241,7 +255,7 @@ public class Uploader {
      */
     private void uploadDir(String dir) {
         Photoset s = null;
-        com.aetrion.flickr.uploader.Uploader uploader = f.getUploader();
+        com.flickr4java.flickr.uploader.Uploader uploader = f.getUploader();
         File[] l = new File(dir).listFiles();
         Arrays.sort(l, new Comparator<File>() {
 
@@ -349,7 +363,7 @@ public class Uploader {
         return null;
     }
 
-    private boolean saveToken(String token) {
+    private boolean saveToken(String token, String tokenSecret) {
     	StringBuffer sb = new StringBuffer();
         File f = new File(System.getProperty("user.home"), Uploader.TOKEN_FILE);
         try {
@@ -358,7 +372,8 @@ public class Uploader {
             	sb.append("Saving token \""+token+"\" to \""+f.getAbsolutePath()+"\" ... ");
                 FileWriter w = new FileWriter(f);
                 BufferedWriter writer = new BufferedWriter(w);
-                writer.write(token);
+                writer.write(token+"\n");
+                writer.write(tokenSecret);
                 writer.close();
                 sb.append("DONE");
             }
@@ -375,7 +390,7 @@ public class Uploader {
      * read token from file
      * @return
      */
-    private String readToken() {
+    private String[] readToken() {
         File f = new File(System.getProperty("user.home"), Uploader.TOKEN_FILE);
         if(f.exists()) {
             log.debug("Reading token from \""+f.getAbsolutePath()+"\"");
@@ -383,12 +398,13 @@ public class Uploader {
                 FileReader r = new FileReader(f);
                 BufferedReader br = new BufferedReader(r);
                 String token = br.readLine();
-                return token;
+                String tokenSecret = br.readLine();
+                return new String[]{token,tokenSecret};
             } catch (Exception e) {
                 log.error(e.getMessage());
             }
         }
-        return "";
+        return null;
     }
     
     /**
