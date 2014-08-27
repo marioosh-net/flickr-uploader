@@ -21,6 +21,8 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Properties;
 import java.util.Scanner;
 import javax.xml.parsers.ParserConfigurationException;
@@ -87,6 +89,7 @@ public class Uploader {
     static String dir = ".";
     static boolean saveToken = true;
     static boolean nq = false;
+    static boolean force = false;
 
     public static void main(String[] args) {
         try {
@@ -95,6 +98,7 @@ public class Uploader {
             options.addOption("ts", true, "auth token secret");
             options.addOption("d", true, "directory to upload");
             options.addOption("ns", false, "no save token");
+            options.addOption("f", false, "force upload instead skip existing file names in photoset");
             options.addOption("nq", false, "don't ask questions");
             options.addOption("h", false, "help");
 
@@ -125,6 +129,9 @@ public class Uploader {
             }
             if(cmd.hasOption("nq")) {
                 nq = true;
+            }
+            if(cmd.hasOption("f")) {
+                force = true;
             }
 
             new Uploader();
@@ -267,8 +274,44 @@ public class Uploader {
             }
         });
 
+        /**
+         * list photos in set
+         */
+        List<String> photoTitles = null;
+        s = findSet(new File(dir).getName());        
+        if(s != null) {
+        	log.info("Photoset exist "+s);
+            log.info("title :"+s.getTitle());
+            log.info("id    :"+s.getId());
+            log.info("photos:"+s.getPhotoCount());
+        	
+        	int page = 1;
+        	photoTitles = new ArrayList<String>();
+        	PhotoList<Photo> list;
+        	try {
+	        	while((list = f.getPhotosetsInterface().getPhotos(s.getId(), 500, page)).size() > 0) {
+	            	Iterator<Photo> it = list.iterator();
+	            	while(it.hasNext()) {
+	            		Photo photo = it.next();
+	            		photoTitles.add(photo.getTitle());
+	            	}
+	            	page++;
+	        	}    
+	        	log.info(photoTitles);
+        	} catch (Exception e) {
+        		e.printStackTrace();
+        		System.exit(1);
+        	}
+        }
+        
         int i = 0;
         for (File p : l) {
+        	if(!force) {
+	        	if(!(photoTitles == null || (photoTitles != null && photoTitles.contains(p.getName())))) {
+	        		log.info(String.format("Skipping %-70s",p.getAbsolutePath()));
+	        		continue;
+	        	}
+        	}
             if (p.isFile()) {
                 UploadMetaData metaData = new UploadMetaData();
                 metaData.setHidden(true);
