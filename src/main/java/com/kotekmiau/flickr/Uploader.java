@@ -41,6 +41,7 @@ import com.flickr4java.flickr.RequestContext;
 import com.flickr4java.flickr.auth.Auth;
 import com.flickr4java.flickr.auth.AuthInterface;
 import com.flickr4java.flickr.auth.Permission;
+import com.flickr4java.flickr.photos.Extras;
 import com.flickr4java.flickr.photos.Photo;
 import com.flickr4java.flickr.photos.PhotoList;
 import com.flickr4java.flickr.photos.SearchParameters;
@@ -289,7 +290,7 @@ public class Uploader {
         	photoTitles = new ArrayList<String>();
         	PhotoList<Photo> list;
         	try {
-	        	while((list = f.getPhotosetsInterface().getPhotos(s.getId(), 500, page)).size() > 0) {
+	        	while((list = f.getPhotosetsInterface().getPhotos(s.getId(), Extras.MIN_EXTRAS, 3, 500, page)).size() > 0) {
 	            	Iterator<Photo> it = list.iterator();
 	            	while(it.hasNext()) {
 	            		Photo photo = it.next();
