@@ -290,7 +290,7 @@ public class Uploader {
         	photoTitles = new ArrayList<String>();
         	PhotoList<Photo> list;
         	try {
-	        	while((list = f.getPhotosetsInterface().getPhotos(s.getId(), Extras.MIN_EXTRAS, 3, 500, page)).size() > 0) {
+	        	while((list = f.getPhotosetsInterface().getPhotos(s.getId(), Extras.MIN_EXTRAS, 5, 500, page)).size() > 0) {
 	            	Iterator<Photo> it = list.iterator();
 	            	while(it.hasNext()) {
 	            		Photo photo = it.next();
@@ -308,7 +308,7 @@ public class Uploader {
         int i = 0;
         for (File p : l) {
         	if(!force) {
-	        	if(!(photoTitles == null || (photoTitles != null && photoTitles.contains(p.getName())))) {
+	        	if(!(photoTitles == null || (photoTitles != null && !photoTitles.contains(p.getName())))) {
 	        		log.info(String.format("Skipping %-70s",p.getAbsolutePath()));
 	        		continue;
 	        	}
