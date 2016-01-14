@@ -278,7 +278,7 @@ public class Uploader {
                 try {
                     sb.append(String.format("%-5s Uploading %-70s", i, p.getAbsolutePath()));
                     String photoId = uploader.upload(new FileInputStream(p), metaData);
-                    sb.append("photoId: " + photoId);
+                    sb.append(" photoId: " + photoId);
                     final String title = new File(dir).getName();
                     
                     Metadata metadata = ImageMetadataReader.readMetadata(new BufferedInputStream(new FileInputStream(p)));
@@ -294,7 +294,7 @@ public class Uploader {
                     f.getPhotosInterface().addTags(photoId, tags.toArray(new String[tags.size()]));
                     sb.append(", Tags: " + new HashSet<String>(tags));
                     
-                    if (i == 0) {
+                    if (s == null) {
                         s = findSet(new File(dir).getName());
                         if (s == null) {
                             try {
@@ -308,11 +308,9 @@ public class Uploader {
                             }
                         }
                     } else {
-                        if (s != null) {
-                            // add photo to photoset
-                            f.getPhotosetsInterface().addPhoto(s.getId(), photoId);
-                            sb.append(", photosetId: "+ s.getId() + "; ");
-                        }
+                        // add photo to photoset
+                        f.getPhotosetsInterface().addPhoto(s.getId(), photoId);
+                        sb.append(", photosetId: "+ s.getId() + "; ");
                     }
 
                 } catch (Exception e) {
