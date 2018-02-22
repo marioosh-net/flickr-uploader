@@ -17,6 +17,14 @@
 			</plugin>
 			<plugin>
 				<artifactId>maven-assembly-plugin</artifactId>
+			     <executions>
+			     	<execution>
+			     		<phase>package</phase>
+			     		<goals>
+			     			<goal>assembly</goal>
+			     		</goals>
+			     	</execution>
+			     </executions>				
 				<configuration>
 					<descriptorRefs>
 						<descriptorRef>jar-with-dependencies</descriptorRef>

@@ -142,8 +142,10 @@ public class Uploader {
 					if (nq) {
 						uploadDir(dir);
 					} else {
-						Console c = System.console();
-						String yn = c.readLine("\nUpload \"" + dir + "\" directory (y/n) ? ");
+						System.out.print("\nUpload \"" + dir + "\" directory (y/n) ? ");						
+						Scanner in = new Scanner(System.in);
+						String yn = in.nextLine();
+						in.close();
 						if (yn.equalsIgnoreCase("y")) {
 							uploadDir(dir);
 						}
@@ -295,17 +297,17 @@ public class Uploader {
                     sb.append(", Tags: " + new HashSet<String>(tags));
                     
                     if (s == null) {
-                        s = findSet(new File(dir).getName());
-                        if (s == null) {
-                            try {
-                            	
-                                s = f.getPhotosetsInterface().create(title, "", photoId);
-                                sb.append(", photosetId: "+ s.getId() + " (new); ");
+                        s = findSet(title);
+                    }
+                    if (s == null) {
+                        try {
+                        	
+                            s = f.getPhotosetsInterface().create(title, "", photoId);
+                            sb.append(", photosetId: "+ s.getId() + " (new); ");
 
-                            } catch (Exception e1) {
-                            	log.error(e1.getMessage());
-                                sb.append(" >>> "+e1.getMessage());
-                            }
+                        } catch (Exception e1) {
+                        	log.error(e1.getMessage());
+                            sb.append(" >>> "+e1.getMessage());
                         }
                     } else {
                         // add photo to photoset
@@ -314,8 +316,7 @@ public class Uploader {
                     }
 
                 } catch (Exception e) {
-                	e.printStackTrace();
-                	log.error(e.getMessage());
+                	log.debug(e.getMessage());
                     sb.append(" >>> "+e.getMessage());
                 }
                 
