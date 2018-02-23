@@ -73,8 +73,8 @@ import com.flickr4java.flickr.uploader.UploadMetaData;
  *  -dd1 <photoset_title>   delete double photos (having the same name) in
  *                          one album
  *  -g <photoset_title>     download all photos of one album
- *  -gq <quality>           photo quality to download (available: o -
- *                          original, l - large, m - medium, s - small, sq - square, t - thumbnail
+ *  -gq <quality>           photo quality to download (available: o-original,
+ *                          l-large, m-medium, s-small, sq-square, t-thumbnail
  *  -h                      help
  *  -l                      list sets
  *  -nq                     don't ask questions
@@ -136,7 +136,7 @@ public class Uploader {
             Option ddOpt = new Option("dd", false, "delete double photos in all albums");
             Option dd1Opt = new Option("dd1", true, "delete double photos (having the same name) in one album");
             Option gOpt = new Option("g", true, "download all photos of one album");
-            Option gqOpt = new Option("gq", true, "photo quality to download (available: o - original, l - large, m - medium, s - small, sq - square, t - thumbnail");
+            Option gqOpt = new Option("gq", true, "photo quality to download (available: o-original, l-large, m-medium, s-small, sq-square, t-thumbnail");
             
             tOpt.setArgName("token");
             tsOpt.setArgName("token_scret");
