@@ -261,27 +261,40 @@ public class Uploader {
         	}
         } while (page++ < pages);
         
-        String psPopId = null;
-        for(Photo1 p2: todelete) {
-        	if(p2.photosetId != psPopId) {
-        		logDeleted.write(">"+p2.photosetId+":"+p2.photosetTitle+"\n");
-        	}
-    		logDeleted.write("+"+p2.id+":"+p2.title+"\n");	            	
-        	psPopId = p2.photosetId;
-        	
-        	/**
-        	 * DELETE !
-        	 */
-        	try {
-        		f.getPhotosInterface().delete(p2.id);
-        		log.info("Delete photo ID: "+p2.id +"("+p2.photosetTitle+") DONE.");
-        	} catch (Exception e) {
-        		log.info("Delete photo ID: "+p2.id +"("+p2.photosetTitle+") FAILS.");	            		
-        		e.printStackTrace();
-        	}
-        	
+        log.info("OK       : "+ok.size());
+        log.info("TO DELETE: "+todelete.size());
+        
+        if(todelete.size() > 0) {
+			System.out.print("\nAre You sure to DELETE " + todelete.size() + " photos ? ");						
+			Scanner in = new Scanner(System.in);
+			String yn = in.nextLine();
+			in.close();
+			if(yn.equalsIgnoreCase("y")) {
+				
+		        String psPopId = null;
+		        for(Photo1 p2: todelete) {
+		        	if(p2.photosetId != psPopId) {
+		        		logDeleted.write(">"+p2.photosetId+":"+p2.photosetTitle+"\n");
+		        	}
+		    		logDeleted.write("+"+p2.id+":"+p2.title+"\n");	            	
+		        	psPopId = p2.photosetId;
+		        	
+		        	/**
+		        	 * DELETE !
+		        	 */
+		        	try {
+		        		f.getPhotosInterface().delete(p2.id);
+		        		log.info("Delete photo ID: "+p2.id +"("+p2.photosetTitle+") DONE.");
+		        	} catch (Exception e) {
+		        		log.info("Delete photo ID: "+p2.id +"("+p2.photosetTitle+") FAILS.");	            		
+		        		e.printStackTrace();
+		        	}
+		        	
+		        }
+			}
         }
 
+		String psPopId = null;
         for(Photo1 p2: ok) {
         	if(p2.photosetId != psPopId) {
         		logLeft.write(">"+p2.photosetId+":"+p2.photosetTitle+"\n");
@@ -290,9 +303,6 @@ public class Uploader {
         	psPopId = p2.photosetId;
         }
         
-        log.info("OK       : "+ok.size());
-        log.info("TO DELETE: "+todelete.size());
-    	
     }
     
     private void deleteDoubles(String deleteDoubleOneTitle) {
