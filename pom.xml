@@ -4,6 +4,9 @@
 	<groupId>net.marioosh.flickr</groupId>
 	<artifactId>flickr-uploader</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+	</properties>
 	<build>
 	   <finalName>flickr-uploader</finalName>
 		<plugins>
