@@ -75,6 +75,9 @@ public class Uploader {
 
 	private static Logger log = Logger.getLogger(Uploader.class);
 	
+	private static final SimpleDateFormat DATE_FORMAT_DATE = new SimpleDateFormat("yyyy.MM.dd");
+	private static final SimpleDateFormat DATE_FORMAT_YEAR = new SimpleDateFormat("yyyy");
+	
 	final static String TOKEN_FILE = ".flickr-token";
 	final static String CONFIG_FILE = ".flickr-uploader";
 
@@ -114,7 +117,7 @@ public class Uploader {
             options.addOption("dd", false, "delete double photos in all albums");
             options.addOption("dd1", true, "delete double photos in one album");
 
-            log.info("HOME: "+ System.getProperty("user.home"));
+            log.debug("HOME: "+ System.getProperty("user.home"));
 
             CommandLineParser parser = new PosixParser();
             CommandLine cmd = parser.parse(options, args);
@@ -305,7 +308,10 @@ public class Uploader {
 	        } else {
 	        	for(Object o: sets.getPhotosets()) {
 	        		Photoset s = (Photoset) o;
-	        		System.out.println(s.getTitle() + " "+s.getPhotoCount());
+	        		Date updated = new Date(Long.parseLong(s.getDateUpdate())*1000);
+	        		Date created = new Date(Long.parseLong(s.getDateCreate())*1000);
+	        		Date printed = updated.after(created) ? updated: created;
+	        		System.out.println(Utils.padRight(s.getPhotoCount()+"",5)+" "+DATE_FORMAT_DATE.format(printed)+" "+s.getId()+" "+s.getTitle());
 	        	}
 	        }
     	} catch (FlickrException e) {
@@ -599,12 +605,12 @@ public class Uploader {
     }
     
     private void tokenInfo(Auth auth) {
-    	log.info("-- AUTH --");
-    	log.debug(String.format("Token      :%s", auth.getToken()));
-        log.info(String.format("nsid       :%s", auth.getUser().getId()));
-        log.info(String.format("Realname   :%s", auth.getUser().getRealName()));
-        log.info(String.format("Username   :%s", auth.getUser().getUsername()));
-        log.info(String.format("Permission :%s", auth.getPermission()));
+    	log.debug("-- AUTH --");
+    	//log.debug(String.format("Token      :%s", auth.getToken()));
+        log.debug(String.format("nsid       :%s", auth.getUser().getId()));
+        log.debug(String.format("Realname   :%s", auth.getUser().getRealName()));
+        log.debug(String.format("Username   :%s", auth.getUser().getUsername()));
+        log.debug(String.format("Permission :%s", auth.getPermission()));
     }
 
     /**
@@ -645,8 +651,8 @@ public class Uploader {
                     	add(title);
                         if(d.containsTag(ExifDirectory.TAG_DATETIME)) {
                         	Date date = d.getDate(ExifDirectory.TAG_DATETIME);
-                    		add(new SimpleDateFormat("yyyy.MM.dd").format(date));
-                    		add(new SimpleDateFormat("yyyy").format(date));
+                    		add(DATE_FORMAT_DATE.format(date));
+                    		add(DATE_FORMAT_YEAR.format(date));
                     	}
                     }};
                     f.getPhotosInterface().addTags(photoId, tags.toArray(new String[tags.size()]));
@@ -694,7 +700,7 @@ public class Uploader {
             }
             for (Object o : sets.getPhotosets()) {
                 Photoset s = (Photoset) o;
-                log.debug(String.format("%-50s%s %d", s.getTitle(), s.getId(), s.getPhotoCount()));
+                log.debug(String.format("%-50s %s %d", s.getTitle(), s.getId(), s.getPhotoCount()));
             }
             return sets;
         } catch (Exception e) {
