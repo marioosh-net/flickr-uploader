@@ -115,7 +115,7 @@ public class Uploader {
             options.addOption("h", false, "help");
             options.addOption("pub", true, "file with permissions to parse");
             options.addOption("dd", false, "delete double photos in all albums");
-            options.addOption("dd1", true, "delete double photos in one album");
+            options.addOption("dd1", true, "delete double photos (having the same name) in one album");
 
             log.debug("HOME: "+ System.getProperty("user.home"));
 
@@ -179,10 +179,10 @@ public class Uploader {
 	            		listSets();
 	            	}
 	            	if(deleteDoubleOne && deleteDoubleOneTitle != null) {
-	            		deleteDoubleOne();
+	            		deleteDoubles(deleteDoubleOneTitle);
 	            	}
 	            	if(deleteDouble) {
-	            		deleteDouble();
+	            		deleteDoubles(null);
 	            	}
 	            	if (pub != null) {
 	            		System.out.print("\nParse \"" + pub + "\" to set public photos (y/n) ? ");						
@@ -215,7 +215,74 @@ public class Uploader {
 		}
     }
 
-    private void deleteDoubleOne() {
+    /**
+     * search duplicate photos (had the same names) in photoset and delete them
+     * 
+     * @param photoset
+     * @param logDeleted
+     * @param logLeft
+     * @throws IOException
+     * @throws FlickrException
+     */
+    private void deleteDoubleOne(Photoset photoset, FileWriter logDeleted, FileWriter logLeft) throws IOException, FlickrException {
+    	
+    	log.info("Searching in \""+photoset.getTitle()+"\" photoset...");
+        Set<Photo1> ok = new HashSet<Photo1>();
+        List<Photo1> todelete = new ArrayList<Photo1>();
+
+        /**
+         * bulid full list
+         */
+        int page = 1;
+        int pages = 0;
+        do {
+        	PhotoList<Photo> pl = f.getPhotosetsInterface().getPhotos(photoset.getId(), 500, page);
+        	for(Photo p: pl) {
+        		Photo1 p1 = new Photo1(p.getTitle(), p.getId(), photoset.getTitle(), photoset.getId());
+        		if(!ok.add(p1)) {
+        			todelete.add(p1);
+        		}
+        	}
+        	if(page == 1) {
+        		pages = pl.getPages();
+        	}
+        } while (page++ < pages);
+        
+        String psPopId = null;
+        for(Photo1 p2: todelete) {
+        	if(p2.photosetId != psPopId) {
+        		logDeleted.write(">"+p2.photosetId+":"+p2.photosetTitle+"\n");
+        	}
+    		logDeleted.write("+"+p2.id+":"+p2.title+"\n");	            	
+        	psPopId = p2.photosetId;
+        	
+        	/**
+        	 * DELETE !
+        	 */
+        	try {
+        		f.getPhotosInterface().delete(p2.id);
+        		log.info("Delete photo ID: "+p2.id +"("+p2.photosetTitle+") DONE.");
+        	} catch (Exception e) {
+        		log.info("Delete photo ID: "+p2.id +"("+p2.photosetTitle+") FAILS.");	            		
+        		e.printStackTrace();
+        	}
+        	
+        }
+
+        for(Photo1 p2: ok) {
+        	if(p2.photosetId != psPopId) {
+        		logLeft.write(">"+p2.photosetId+":"+p2.photosetTitle+"\n");
+        	}
+    		logLeft.write("+"+p2.id+":"+p2.title+"\n");	            	
+        	psPopId = p2.photosetId;
+        }
+        
+        log.info("OK       : "+ok.size());
+        log.info("TO DELETE: "+todelete.size());
+    	
+    }
+    
+    private void deleteDoubles(String deleteDoubleOneTitle) {
     	try {
 	        Photosets sets = f.getPhotosetsInterface().getList(auth.getUser().getId());
 	        if(sets.getPhotosets().size() == 0) {
@@ -224,75 +291,24 @@ public class Uploader {
 
 	        File ff = File.createTempFile("todelete", ".photos");
             log.info(ff.getAbsolutePath());
-            FileWriter fw = new FileWriter(ff);
+            FileWriter logDeleted = new FileWriter(ff);
 
 	        File ff1 = File.createTempFile("okey", ".photos");
             log.info(ff1.getAbsolutePath());
-            FileWriter fw1 = new FileWriter(ff1);
+            FileWriter logLeft = new FileWriter(ff1);
             
 	        for (Object o : sets.getPhotosets()) {
 	            Photoset s = (Photoset) o;
-	            if(s.getTitle().equals(deleteDoubleOneTitle)) {
-	            	log.info("Searching in \""+s.getTitle()+"\" photoset...");
-		            Set<Photo1> ok = new HashSet<Photo1>();
-		            Set<Photo1> todelete = new HashSet<Photo1>();
-
-		            /**
-		             * bulid full list
-		             */
-		            int page = 1;
-		            int pages = 0;
-		            do {
-		            	PhotoList pl = f.getPhotosetsInterface().getPhotos(s.getId(), 500, page);
-		            	for(Object o1: pl) {
-		            		Photo p = (Photo) o1;
-		            		Photo1 p1 = new Photo1(p.getTitle(), p.getId(), s.getTitle(), s.getId());
-		            		if(!ok.add(p1)) {
-		            			todelete.add(p1);
-		            		}
-		            	}
-	                	if(page == 1) {
-	                		pages = pl.getPages();
-	                	}
-		            } while (page++ < pages);
-		            
-		            String psPopId = null;
-		            for(Photo1 p2: todelete) {
-		            	if(p2.photosetId != psPopId) {
-		            		fw.write(">"+p2.photosetId+":"+p2.photosetTitle+"\n");
-		            	}
-	            		fw.write("+"+p2.id+":"+p2.title+"\n");	            	
-		            	psPopId = p2.photosetId;
-		            	
-		            	/**
-		            	 * DELETE !
-		            	 */
-		            	try {
-		            		f.getPhotosInterface().delete(p2.id);
-		            		log.info("Delete photo ID: "+p2.id +"("+p2.photosetTitle+") DONE.");
-		            	} catch (Exception e) {
-		            		log.info("Delete photo ID: "+p2.id +"("+p2.photosetTitle+") FAILS.");	            		
-		            		e.printStackTrace();
-		            	}
-		            	
-		            }
-		            fw.close();
-
-		            for(Photo1 p2: ok) {
-		            	if(p2.photosetId != psPopId) {
-		            		fw1.write(">"+p2.photosetId+":"+p2.photosetTitle+"\n");
-		            	}
-	            		fw1.write("+"+p2.id+":"+p2.title+"\n");	            	
-		            	psPopId = p2.photosetId;
-		            }
-		            fw1.close();
-		            
-		            log.info("OK       : "+ok.size());
-		            log.info("TO DELETE: "+todelete.size());
-		            
+	            if(deleteDoubleOneTitle == null) {
+	            	deleteDoubleOne(s, logDeleted, logLeft);
+	            } else if(deleteDoubleOneTitle != null && s.getTitle().equals(deleteDoubleOneTitle)) {
+	            	deleteDoubleOne(s, logDeleted, logLeft);
 	            	break;
 	            }
 	        }
+	        
+	        logDeleted.close();
+	        logLeft.close();
     	} catch (FlickrException e) {
     		e.printStackTrace();
     	} catch (IOException e) {
@@ -317,78 +333,8 @@ public class Uploader {
     	} catch (FlickrException e) {
     		e.printStackTrace();
 		}
-	}
+	}    
     
-    private void deleteDouble() {
-    	try {
-	        Photosets sets = f.getPhotosetsInterface().getList(auth.getUser().getId());
-	        if(sets.getPhotosets().size() == 0) {
-	        	log.debug("No Photosets");
-	        }
-
-	        File ff = File.createTempFile("todelete", "photos");
-            log.info(ff.getAbsolutePath());
-            FileWriter fw = new FileWriter(ff);
-
-	        
-	        for (Object o : sets.getPhotosets()) {
-	            Photoset s = (Photoset) o;
-	        	log.info("Searching in \""+s.getTitle()+"\" photoset...");
-	            int page = 1;
-	            int pages = 0;
-
-	            Set<Photo1> ok = new HashSet<Photo1>();
-	            Set<Photo1> todelete = new HashSet<Photo1>();
-	            
-	            /**
-	             * bulid full list
-	             */
-	            do {
-	            	PhotoList pl = f.getPhotosetsInterface().getPhotos(s.getId(), 500, page);
-	            	for(Object o1: pl) {
-	            		Photo p = (Photo) o1;
-	            		Photo1 p1 = new Photo1(p.getTitle(), p.getId(), s.getTitle(), s.getId());
-	            		if(!ok.add(p1)) {
-	            			todelete.add(p1);
-	            		}
-	            	}
-                	if(page == 1) {
-                		pages = pl.getPages();
-                	}
-	            } while (page++ < pages);
-	            
-	            String psPopId = null;
-	            for(Photo1 p2: todelete) {
-	            	if(p2.photosetId != psPopId) {
-	            		fw.write(">"+p2.photosetId+":"+p2.photosetTitle+"\n");
-	            	}
-            		fw.write("+"+p2.id+":"+p2.title+"\n");	            	
-	            	psPopId = p2.photosetId;
-	            	
-	            	/**
-	            	 * DELETE !
-	            	 */
-	            	try {
-	            		f.getPhotosInterface().delete(p2.id);
-	            		log.info("Delete photo ID: "+p2.id +"("+p2.photosetTitle+") DONE.");
-	            	} catch (Exception e) {
-	            		log.info("Delete photo ID: "+p2.id +"("+p2.photosetTitle+") FAILS.");	            		
-	            		e.printStackTrace();
-	            	}
-	            }
-	            
-	            log.info("OK       : "+ok.size());
-	            log.info("TO DELETE: "+todelete.size());
-	            
-	        }
-            fw.close();	        
-    	} catch (FlickrException e) {
-    		e.printStackTrace();
-    	} catch (IOException e) {
-			e.printStackTrace();
-		}
-	}
-
     /**
      * list files to public - file format:
      * album_title1
@@ -811,4 +757,10 @@ class Photo1 {
 	public int hashCode() {
 		return this.photosetTitle.hashCode();
 	}
+	@Override
+	public String toString() {
+		return "Photo1 [photosetId=" + photosetId + ", photosetTitle=" + photosetTitle + ", title=" + title + ", id="
+				+ id + "]";
+	}	
+	
 }
