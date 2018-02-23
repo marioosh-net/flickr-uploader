@@ -3,7 +3,6 @@ package com.kotekmiau.flickr;
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
-import java.io.Console;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -11,14 +10,9 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.net.URL;
-import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
@@ -27,7 +21,7 @@ import java.util.List;
 import java.util.Properties;
 import java.util.Scanner;
 import java.util.Set;
-import javax.xml.parsers.ParserConfigurationException;
+
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.HelpFormatter;
@@ -36,7 +30,11 @@ import org.apache.commons.cli.PosixParser;
 import org.apache.log4j.Logger;
 import org.scribe.model.Token;
 import org.scribe.model.Verifier;
-import org.xml.sax.SAXException;
+
+import com.drew.imaging.ImageMetadataReader;
+import com.drew.metadata.Directory;
+import com.drew.metadata.Metadata;
+import com.drew.metadata.exif.ExifDirectory;
 import com.flickr4java.flickr.Flickr;
 import com.flickr4java.flickr.FlickrException;
 import com.flickr4java.flickr.REST;
@@ -51,13 +49,6 @@ import com.flickr4java.flickr.photos.SearchParameters;
 import com.flickr4java.flickr.photosets.Photoset;
 import com.flickr4java.flickr.photosets.Photosets;
 import com.flickr4java.flickr.uploader.UploadMetaData;
-import com.flickr4java.flickr.util.IOUtilities;
-import com.drew.imaging.ImageMetadataReader;
-import com.drew.metadata.Directory;
-import com.drew.metadata.Metadata;
-import com.drew.metadata.exif.ExifDirectory;
-import com.drew.metadata.exif.ExifReader;
-import com.flickr4java.flickr.Flickr;
 
 /**
  * Flickr command-line uploader
@@ -65,9 +56,17 @@ import com.flickr4java.flickr.Flickr;
  * Photos are tagged using Exif data
  * 
  * usage: java -jar flickr-uploader.jar
- *	-d <arg>    directory to upload
- *	-ns <arg>   no save token
- *	-t <arg>    auth token
+ *  -d <arg>     directory to upload
+ *  -d1          don't create new sets for subdirectories
+ *  -dd          delete double photos in all albums
+ *  -dd1 <arg>   delete double photos in one album
+ *  -h           help
+ *  -l           list sets
+ *  -nq          don't ask questions
+ *  -ns          no save token
+ *  -pub <arg>   file with permissions to parse
+ *  -t <arg>     auth token
+ *  -ts <arg>    auth token secret
  * 
  * @author marioosh
  *
@@ -90,7 +89,7 @@ public class Uploader {
      */
     static String token = "";
     static String tokenSecret = "";
-    static String dir = ".";
+    static String dir = null;
     static boolean noSubsAlbum;
     static String pub = null;
     static boolean saveToken = true;
