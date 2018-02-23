@@ -1,12 +1,12 @@
 flickr-uploader
 ---------------
-command-line mass uploader for Flickr (in Java) using Flickrj (http://flickrj.sourceforge.net/)
+command-line mass uploader for Flickr (in Java) using Flickr4Java (https://github.com/boncey/Flickr4Java)
 
 Installation
 ------------
 Build app with Maven (http://maven.apache.org):
 
-mvn assembly:assembly
+mvn package
 After successful build .jar is in target directory
 
 cd target
