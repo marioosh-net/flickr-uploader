@@ -27,6 +27,7 @@ import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.PosixParser;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.log4j.Logger;
 import org.scribe.model.Token;
 import org.scribe.model.Verifier;
@@ -34,6 +35,7 @@ import org.scribe.model.Verifier;
 import com.drew.imaging.ImageMetadataReader;
 import com.drew.metadata.Directory;
 import com.drew.metadata.Metadata;
+import com.drew.metadata.Tag;
 import com.drew.metadata.exif.ExifDirectory;
 import com.flickr4java.flickr.Flickr;
 import com.flickr4java.flickr.FlickrException;
@@ -42,6 +44,7 @@ import com.flickr4java.flickr.RequestContext;
 import com.flickr4java.flickr.auth.Auth;
 import com.flickr4java.flickr.auth.AuthInterface;
 import com.flickr4java.flickr.auth.Permission;
+import com.flickr4java.flickr.photos.Extras;
 import com.flickr4java.flickr.photos.Permissions;
 import com.flickr4java.flickr.photos.Photo;
 import com.flickr4java.flickr.photos.PhotoList;
@@ -77,6 +80,7 @@ public class Uploader {
 	
 	private static final SimpleDateFormat DATE_FORMAT_DATE = new SimpleDateFormat("yyyy.MM.dd");
 	private static final SimpleDateFormat DATE_FORMAT_YEAR = new SimpleDateFormat("yyyy");
+	private static final String SHA1_TAG_PREFIX = "sha1x";
 	
 	final static String TOKEN_FILE = ".flickr-token";
 	final static String CONFIG_FILE = ".flickr-uploader";
@@ -236,9 +240,18 @@ public class Uploader {
         int page = 1;
         int pages = 0;
         do {
-        	PhotoList<Photo> pl = f.getPhotosetsInterface().getPhotos(photoset.getId(), 500, page);
+        	PhotoList<Photo> pl = f.getPhotosetsInterface().getPhotos(photoset.getId(), Extras.ALL_EXTRAS, Flickr.PRIVACY_LEVEL_NO_FILTER, 500, page);
         	for(Photo p: pl) {
-        		Photo1 p1 = new Photo1(p.getTitle(), p.getId(), photoset.getTitle(), photoset.getId());
+        		String sha1 = null;
+        		for(com.flickr4java.flickr.tags.Tag tag: p.getTags()) {
+        			String v = tag.getValue();       
+        			if(v.startsWith(SHA1_TAG_PREFIX)) {
+        				sha1 = v.substring(5);
+        				sha1 = sha1.length()>0?sha1:null;
+            			break;        				
+        			}
+        		}       		
+        		Photo1 p1 = new Photo1(p.getTitle(), p.getId(), photoset.getTitle(), photoset.getId(), sha1);
         		if(!ok.add(p1)) {
         			todelete.add(p1);
         		}
@@ -576,6 +589,8 @@ public class Uploader {
                 return 0;
             }
         });
+        
+        HashMap<String, String> uploadedSha1 = new HashMap<String, String>();
 
         int i = 0;
         for (File p : l) {
@@ -586,8 +601,25 @@ public class Uploader {
                 metaData.setTitle(p.getName());
                 StringBuffer sb = new StringBuffer();
                 try {
-                    sb.append(String.format("%-5s Uploading %-70s", i, p.getAbsolutePath()));
+                    // hash
+                    FileInputStream fis = new FileInputStream(p);
+                    String sha1 = DigestUtils.sha1Hex(fis);
+                    fis.close();
+                    
+                    /**
+                     * skip indetical file in uploaded directory
+                     */
+                    String path = uploadedSha1.get(sha1);
+                    if(path != null) {
+                    	log.info("Skipping \""+p.getName()+"\", identical file: \""+path+"\" uploaded before.");
+                    	continue;
+                    }
+                	
+                	sb.append(String.format("%-5s Uploading %-70s", i, p.getAbsolutePath()));
                     String photoId = uploader.upload(new FileInputStream(p), metaData);
+                    
+                    uploadedSha1.put(sha1, p.getAbsolutePath());
+                    
                     sb.append(" photoId: " + photoId);
                     final String title = new File(dir).getName();
                     
@@ -601,6 +633,10 @@ public class Uploader {
                     		add(DATE_FORMAT_YEAR.format(date));
                     	}
                     }};
+
+                    tags.add("sha1");
+                    tags.add(SHA1_TAG_PREFIX+sha1);
+                    
                     f.getPhotosInterface().addTags(photoId, tags.toArray(new String[tags.size()]));
                     sb.append(", Tags: " + new HashSet<String>(tags));
                     
@@ -736,17 +772,22 @@ class Photo1 {
 	String photosetTitle;
 	String title;
 	String id;
-	public Photo1(String title, String id, String photosetTitle, String photosetId) {
+	String sha1;
+	public Photo1(String title, String id, String photosetTitle, String photosetId, String sha1) {
 		super();
 		this.title = title;
 		this.id = id;
 		this.photosetId = photosetId;
 		this.photosetTitle = photosetTitle;
+		this.sha1 = sha1;
 	}
 	@Override
 	public boolean equals(Object obj) {
 		if(obj instanceof Photo1) {
 			Photo1 p1 = (Photo1) obj;
+			if(p1.sha1!=null && p1.sha1.equals(this.sha1)) {
+				return true;
+			}
 			if(p1.title.equals(this.title)) {
 				return true;
 			}
