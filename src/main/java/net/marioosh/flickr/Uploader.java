@@ -10,6 +10,11 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
+import java.net.URLConnection;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -21,10 +26,14 @@ import java.util.List;
 import java.util.Properties;
 import java.util.Scanner;
 import java.util.Set;
+import java.util.regex.Pattern;
+
+import javax.net.ssl.HttpsURLConnection;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.PosixParser;
 import org.apache.commons.codec.digest.DigestUtils;
@@ -35,7 +44,6 @@ import org.scribe.model.Verifier;
 import com.drew.imaging.ImageMetadataReader;
 import com.drew.metadata.Directory;
 import com.drew.metadata.Metadata;
-import com.drew.metadata.Tag;
 import com.drew.metadata.exif.ExifDirectory;
 import com.flickr4java.flickr.Flickr;
 import com.flickr4java.flickr.FlickrException;
@@ -59,17 +67,21 @@ import com.flickr4java.flickr.uploader.UploadMetaData;
  * Photos are tagged using Exif data
  * 
  * usage: java -jar flickr-uploader.jar
- *  -d <arg>     directory to upload
- *  -d1          don't create new sets for subdirectories
- *  -dd          delete double photos in all albums
- *  -dd1 <arg>   delete double photos in one album
- *  -h           help
- *  -l           list sets
- *  -nq          don't ask questions
- *  -ns          no save token
- *  -pub <arg>   file with permissions to parse
- *  -t <arg>     auth token
- *  -ts <arg>    auth token secret
+ *  -d <directory>          directory to upload
+ *  -d1                     don't create new sets for subdirectories
+ *  -dd                     delete double photos in all albums
+ *  -dd1 <photoset_title>   delete double photos (having the same name) in
+ *                          one album
+ *  -g <photoset_title>     download all photos of one album
+ *  -gq <quality>           photo quality to download (available: o -
+ *                          original, l - large, m - medium, s - small, sq - square, t - thumbnail
+ *  -h                      help
+ *  -l                      list sets
+ *  -nq                     don't ask questions
+ *  -ns                     no save token
+ *  -pub <file>             file with permissions to parse
+ *  -t <token>              auth token
+ *  -ts <token_scret>       auth token secret
  * 
  * @author marioosh
  *
@@ -81,6 +93,7 @@ public class Uploader {
 	private static final SimpleDateFormat DATE_FORMAT_DATE = new SimpleDateFormat("yyyy.MM.dd");
 	private static final SimpleDateFormat DATE_FORMAT_YEAR = new SimpleDateFormat("yyyy");
 	private static final String SHA1_TAG_PREFIX = "sha1x";
+	private final static String FILE_PATTERN = "([^\\s]+(\\.(?i)(jpg|jpeg|png|gif|bmp|mp4|avi|wmv|mov|mpg|3gp|ogg|ogv))$)";
 	
 	final static String TOKEN_FILE = ".flickr-token";
 	final static String CONFIG_FILE = ".flickr-uploader";
@@ -105,21 +118,47 @@ public class Uploader {
     static boolean deleteDoubleOne = false;
     static String deleteDoubleOneTitle;
     static boolean list = false;
+    static String download;
+    static String downloadQuality;
 
     public static void main(String[] args) {
         try {
             Options options = new Options();
-            options.addOption("t", true, "auth token");
-            options.addOption("ts", true, "auth token secret");
-            options.addOption("d", true, "directory to upload");
-            options.addOption("d1", false, "don't create new sets for subdirectories");
-            options.addOption("l", false, "list sets");
-            options.addOption("ns", false, "no save token");
-            options.addOption("nq", false, "don't ask questions");
-            options.addOption("h", false, "help");
-            options.addOption("pub", true, "file with permissions to parse");
-            options.addOption("dd", false, "delete double photos in all albums");
-            options.addOption("dd1", true, "delete double photos (having the same name) in one album");
+            Option tOpt = new Option("t", true, "auth token");
+            Option tsOpt = new Option("ts", true, "auth token secret");
+            Option dOpt = new Option("d", true, "directory to upload");
+            Option d1Opt = new Option("d1", false, "don't create new sets for subdirectories");
+            Option lOpt = new Option("l", false, "list sets");
+            Option nsOpt = new Option("ns", false, "no save token");
+            Option nqOpt = new Option("nq", false, "don't ask questions");
+            Option hOpt = new Option("h", false, "help");
+            Option pubOpt = new Option("pub", true, "file with permissions to parse");
+            Option ddOpt = new Option("dd", false, "delete double photos in all albums");
+            Option dd1Opt = new Option("dd1", true, "delete double photos (having the same name) in one album");
+            Option gOpt = new Option("g", true, "download all photos of one album");
+            Option gqOpt = new Option("gq", true, "photo quality to download (available: o - original, l - large, m - medium, s - small, sq - square, t - thumbnail");
+            
+            tOpt.setArgName("token");
+            tsOpt.setArgName("token_scret");
+            dOpt.setArgName("directory");
+            pubOpt.setArgName("file");
+            dd1Opt.setArgName("photoset_title");
+            gOpt.setArgName("photoset_title");
+            gqOpt.setArgName("quality");
+            
+            options.addOption(tOpt);
+            options.addOption(tsOpt);
+            options.addOption(dOpt);
+            options.addOption(d1Opt);
+            options.addOption(lOpt);
+            options.addOption(nsOpt);
+            options.addOption(nqOpt);
+            options.addOption(hOpt);
+            options.addOption(pubOpt);
+            options.addOption(ddOpt);
+            options.addOption(dd1Opt);
+            options.addOption(gOpt);
+            options.addOption(gqOpt);
 
             log.debug("HOME: "+ System.getProperty("user.home"));
 
@@ -162,6 +201,12 @@ public class Uploader {
             	deleteDoubleOne = true;
             	deleteDoubleOneTitle = cmd.getOptionValue("dd1");
             }
+            if(cmd.hasOption("g")) {
+            	download = cmd.getOptionValue("g");
+            	if(cmd.hasOption("gq")) {
+            		downloadQuality = cmd.getOptionValue("gq");
+            	}
+            }            
             if(cmd.hasOption("l")) {
             	list = true;
             }            
@@ -211,6 +256,9 @@ public class Uploader {
 							}
 						}
 	            	}
+	            	if(download != null) {
+	            		downloadPhotos(download);
+	            	}
 	            }
 			}
 		} catch (Exception e) {
@@ -219,7 +267,7 @@ public class Uploader {
 		}
     }
 
-    /**
+	/**
      * search duplicate photos (had the same names) in photoset and delete them
      * 
      * @param photoset
@@ -775,6 +823,84 @@ public class Uploader {
 			log.debug(e.getMessage());
 		}
     }
+    
+    private void downloadPhotos(String albumTitle) throws FlickrException, KeyManagementException, NoSuchAlgorithmException, IOException {    	
+		HttpsURLConnection.setDefaultSSLSocketFactory(Utils.trustAllSocketFactory());    	
+    	Photoset s = findSet(albumTitle);
+        
+    	Set<String> extras = new HashSet<String>();
+    	String q = downloadQuality==null?Extras.URL_M
+			:downloadQuality.equals("o")?Extras.URL_O
+			:downloadQuality.equals("l")?Extras.URL_L
+			:downloadQuality.equals("m")?Extras.URL_M
+			:downloadQuality.equals("s")?Extras.URL_S
+			:downloadQuality.equals("sq")?Extras.URL_SQ
+			:downloadQuality.equals("t")?Extras.URL_T
+			:Extras.URL_M;
+    	String quality = downloadQuality==null?"medium"
+			:downloadQuality.equals("o")?"original"
+			:downloadQuality.equals("l")?"large"
+			:downloadQuality.equals("m")?"medium"
+			:downloadQuality.equals("s")?"small"
+			:downloadQuality.equals("sq")?"square"
+			:downloadQuality.equals("t")?"thumbnail"
+			:"medium";    	
+    	extras.add(q);
+    	extras.add(Extras.ORIGINAL_FORMAT);
+    	
+    	Pattern pattern = Pattern.compile(FILE_PATTERN);
+    	
+    	int page = 1;
+        int pages = 0;
+        do {
+        	PhotoList<Photo> pl = f.getPhotosetsInterface().getPhotos(s.getId(), extras, Flickr.PRIVACY_LEVEL_NO_FILTER, 500, page);
+
+        	if(page == 1) {
+	    		System.out.print("\nDownload (quality "+quality+") " + pl.getTotal() + " photos (y/n) ? ");						
+	    		Scanner in = new Scanner(System.in);
+	    		String yn = in.nextLine();
+	    		in.close();
+	    		if (!yn.equalsIgnoreCase("y")) {
+	    			break;
+	    		}    	
+        	}
+        	
+        	for(Photo p: pl) {       		
+            	String urlString = downloadQuality==null?p.getMediumUrl()
+    				:downloadQuality.equals("o")?p.getOriginalUrl()
+    				:downloadQuality.equals("l")?p.getLargeUrl()
+    				:downloadQuality.equals("m")?p.getMediumUrl()
+    				:downloadQuality.equals("s")?p.getSmallUrl()
+    				:downloadQuality.equals("sq")?p.getSquareLargeUrl()
+    				:downloadQuality.equals("t")?p.getThumbnailUrl()
+    				:p.getMediumUrl();
+
+                String outFile = p.getTitle();
+            	if(!pattern.matcher(outFile).matches()) {
+            		outFile += "."+p.getOriginalFormat();
+            	}
+                
+            	log.info("Downloading "+urlString + " -> " + outFile+" ...");
+            	            	
+        		URL url = new URL(urlString);
+        		URLConnection connection = url.openConnection();        		
+        		InputStream in = connection.getInputStream();
+        		FileOutputStream out = new FileOutputStream(outFile);        		
+        		byte[] buffer = new byte[1024];
+        		int len;
+        		while ((len = in.read(buffer)) != -1) {
+        		    out.write(buffer, 0, len);
+        		}
+        		in.close();
+        		out.close();
+        	}
+        	if(page == 1) {
+        		pages = pl.getPages();
+        	}
+        } while (page++ < pages);
+
+	}
+    
 }
 
 class Photo1 {
