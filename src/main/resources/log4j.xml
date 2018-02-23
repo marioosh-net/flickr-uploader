@@ -7,7 +7,7 @@
 	   <param name="threshold" value="info"/>
 		<param name="Target" value="System.out" />
 		<layout class="org.apache.log4j.PatternLayout">
-			<param name="ConversionPattern" value="%-5p:[%c{1}:%L] - %m%n" />
+			<param name="ConversionPattern" value="%m%n" />
 		</layout>
 	</appender>
 
@@ -15,7 +15,7 @@
 		<param name="file" value="flickr.log" />
 		<param name="append" value="true" />
 		<layout class="org.apache.log4j.PatternLayout">
-			<param name="ConversionPattern" value="%-5p:[%c{1}:%L] - %m%n" />
+			<param name="ConversionPattern" value="%d{dd.MM.yyyy HH:mm:ss} %-5p:[%c{1}:%L] - %m%n" />
 		</layout>
 	</appender>
 
