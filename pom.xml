@@ -1,7 +1,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-	<groupId>com.kotekmiau.flickr</groupId>
+	<groupId>net.marioosh.flickr</groupId>
 	<artifactId>flickr-uploader</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<build>
@@ -29,7 +29,7 @@
 						<configuration>
 							<transformers>
 								<transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-									<mainClass>com.kotekmiau.flickr.Uploader</mainClass>
+									<mainClass>net.marioosh.flickr.Uploader</mainClass>
 								</transformer>
 							</transformers>						
 							<createDependencyReducedPom>false</createDependencyReducedPom>

@@ -1,4 +1,4 @@
-package com.kotekmiau.flickr;
+package net.marioosh.flickr;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
