@@ -93,6 +93,7 @@ public class Uploader {
 	private static final SimpleDateFormat DATE_FORMAT_DATE = new SimpleDateFormat("yyyy.MM.dd");
 	private static final SimpleDateFormat DATE_FORMAT_YEAR = new SimpleDateFormat("yyyy");
 	private static final String SHA1_TAG_PREFIX = "sha1x";
+	private static final String DOWNLOAD_PREFIX = "download_";	
 	private final static String FILE_PATTERN = "([^\\s]+(\\.(?i)(jpg|jpeg|png|gif|bmp|mp4|avi|wmv|mov|mpg|3gp|ogg|ogv))$)";
 	
 	final static String TOKEN_FILE = ".flickr-token";
@@ -119,6 +120,9 @@ public class Uploader {
     static String deleteDoubleOneTitle;
     static boolean list = false;
     static String download;
+    static String downloadById;
+    static String migrateById;
+    static String migrate;
     static String downloadQuality;
 
     public static void main(String[] args) {
@@ -135,8 +139,11 @@ public class Uploader {
             Option pubOpt = new Option("pub", true, "file with permissions to parse");
             Option ddOpt = new Option("dd", false, "delete double photos in all albums");
             Option dd1Opt = new Option("dd1", true, "delete double photos (having the same name) in one album");
-            Option gOpt = new Option("g", true, "download all photos of one album");
+            Option gOpt = new Option("g", true, "download all photos of one album, by title");
+            Option g2Opt = new Option("g2", true, "download all photos of one album, by photosetId");
             Option gqOpt = new Option("gq", true, "photo quality to download (available: o-original, l-large, m-medium, s-small, sq-square, t-thumbnail");
+            Option mOpt = new Option("m", true, "migrate all photos of one album, by title");
+            Option m2Opt = new Option("m2", true, "migrate all photos of one album, by photosetId");
             
             tOpt.setArgName("token");
             tsOpt.setArgName("token_scret");
@@ -144,6 +151,9 @@ public class Uploader {
             pubOpt.setArgName("file");
             dd1Opt.setArgName("photoset_title");
             gOpt.setArgName("photoset_title");
+            g2Opt.setArgName("photoset_id");
+            mOpt.setArgName("photoset_title");
+            m2Opt.setArgName("photoset_id");
             gqOpt.setArgName("quality");
             
             options.addOption(tOpt);
@@ -158,7 +168,10 @@ public class Uploader {
             options.addOption(ddOpt);
             options.addOption(dd1Opt);
             options.addOption(gOpt);
+            options.addOption(g2Opt);
             options.addOption(gqOpt);
+            options.addOption(mOpt);
+            options.addOption(m2Opt);
 
             log.debug("HOME: "+ System.getProperty("user.home"));
 
@@ -201,11 +214,20 @@ public class Uploader {
             	deleteDoubleOne = true;
             	deleteDoubleOneTitle = cmd.getOptionValue("dd1");
             }
+        	if((cmd.hasOption("g")||cmd.hasOption("g2")) && cmd.hasOption("gq")) {
+        		downloadQuality = cmd.getOptionValue("gq");
+        	}
             if(cmd.hasOption("g")) {
             	download = cmd.getOptionValue("g");
-            	if(cmd.hasOption("gq")) {
-            		downloadQuality = cmd.getOptionValue("gq");
-            	}
+            }            
+            if(cmd.hasOption("g2")) {
+            	downloadById = cmd.getOptionValue("g2");
+            }            
+            if(cmd.hasOption("m")) {
+            	migrate = cmd.getOptionValue("m");
+            }            
+            if(cmd.hasOption("m2")) {
+            	migrateById = cmd.getOptionValue("m2");
             }            
             if(cmd.hasOption("l")) {
             	list = true;
@@ -257,8 +279,11 @@ public class Uploader {
 						}
 	            	}
 	            	if(download != null) {
-	            		downloadPhotos(download);
+	            		downloadPhotos(download, false);
 	            	}
+	            	if(downloadById != null) {
+	            		downloadPhotos(downloadById, true);
+	            	}	            	
 	            }
 			}
 		} catch (Exception e) {
@@ -699,7 +724,7 @@ public class Uploader {
                     sb.append(", Tags: " + new HashSet<String>(tags));
                     
                     if (s == null) {
-                        s = findSet(title);
+                        s = findSet(title, false);
                     }
                     if (s == null) {
                         try {
@@ -749,12 +774,12 @@ public class Uploader {
         return null;
     }
     
-    private Photoset findSet(String name) {
+    private Photoset findSet(String nameOrId, boolean byId) {
         try {
             Photosets sets = f.getPhotosetsInterface().getList(auth.getUser().getId());
             for (Object o : sets.getPhotosets()) {
                 Photoset s = (Photoset) o;
-                if (s.getTitle().equals(name)) {
+                if ((byId?s.getId():s.getTitle()).equals(nameOrId)) {
                     return s;
                 }
             }
@@ -824,9 +849,9 @@ public class Uploader {
 		}
     }
     
-    private void downloadPhotos(String albumTitle) throws FlickrException, KeyManagementException, NoSuchAlgorithmException, IOException {    	
+    private void downloadPhotos(String albumTitle, boolean byId) throws FlickrException, KeyManagementException, NoSuchAlgorithmException, IOException {    	
 		HttpsURLConnection.setDefaultSSLSocketFactory(Utils.trustAllSocketFactory());    	
-    	Photoset s = findSet(albumTitle);
+    	Photoset s = findSet(albumTitle, byId);
         
     	Set<String> extras = new HashSet<String>();
     	String q = downloadQuality==null?Extras.URL_M
@@ -875,10 +900,18 @@ public class Uploader {
     				:downloadQuality.equals("t")?p.getThumbnailUrl()
     				:p.getMediumUrl();
 
-                String outFile = p.getTitle();
-            	if(!pattern.matcher(outFile).matches()) {
-            		outFile += "."+p.getOriginalFormat();
-            	}
+                String outFileTitle = p.getTitle();                
+            	if(!pattern.matcher(outFileTitle).matches()) {
+            		outFileTitle += "."+p.getOriginalFormat();
+            	}            	
+            	File outDir = new File(DOWNLOAD_PREFIX+quality+"_"+ s.getId());
+        		if(!outDir.isDirectory() && !outDir.exists()) {
+        			boolean ok = outDir.mkdir();
+        			if(!ok) {
+        				throw new IOException("Can't create outpu directory "+outDir.getAbsolutePath());
+        			}
+        		}
+        		File outFile = new File(outDir, outFileTitle);
                 
             	log.info("Downloading "+urlString + " -> " + outFile+" ...");
             	            	
