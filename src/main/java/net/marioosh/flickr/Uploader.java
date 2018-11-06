@@ -9,6 +9,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
@@ -93,7 +94,7 @@ public class Uploader {
 	private static final SimpleDateFormat DATE_FORMAT_DATE = new SimpleDateFormat("yyyy.MM.dd");
 	private static final SimpleDateFormat DATE_FORMAT_YEAR = new SimpleDateFormat("yyyy");
 	private static final String SHA1_TAG_PREFIX = "sha1x";
-	private static final String DOWNLOAD_PREFIX = "download_";	
+	private static final String DOWNLOAD_PREFIX = "d_";	
 	private final static String FILE_PATTERN = "([^\\s]+(\\.(?i)(jpg|jpeg|png|gif|bmp|mp4|avi|wmv|mov|mpg|3gp|ogg|ogv))$)";
 	
 	final static String TOKEN_FILE = ".flickr-token";
@@ -124,7 +125,8 @@ public class Uploader {
     static String migrateById;
     static String migrate;
     static String downloadQuality;
-
+    static boolean downloadAll;
+    
     public static void main(String[] args) {
         try {
             Options options = new Options();
@@ -144,6 +146,7 @@ public class Uploader {
             Option gqOpt = new Option("gq", true, "photo quality to download (available: o-original, l-large, m-medium, s-small, sq-square, t-thumbnail");
             Option mOpt = new Option("m", true, "migrate all photos of one album, by title");
             Option m2Opt = new Option("m2", true, "migrate all photos of one album, by photosetId");
+            Option gaOpt = new Option("ga", false, "download all photos of all albums");
             
             tOpt.setArgName("token");
             tsOpt.setArgName("token_scret");
@@ -172,6 +175,7 @@ public class Uploader {
             options.addOption(gqOpt);
             options.addOption(mOpt);
             options.addOption(m2Opt);
+            options.addOption(gaOpt);
 
             log.debug("HOME: "+ System.getProperty("user.home"));
 
@@ -214,7 +218,7 @@ public class Uploader {
             	deleteDoubleOne = true;
             	deleteDoubleOneTitle = cmd.getOptionValue("dd1");
             }
-        	if((cmd.hasOption("g")||cmd.hasOption("g2")) && cmd.hasOption("gq")) {
+        	if(cmd.hasOption("gq")) {
         		downloadQuality = cmd.getOptionValue("gq");
         	}
             if(cmd.hasOption("g")) {
@@ -232,6 +236,9 @@ public class Uploader {
             if(cmd.hasOption("l")) {
             	list = true;
             }            
+            if(cmd.hasOption("ga")) {
+            	downloadAll = true;
+            }
 
             new Uploader();
         } catch (Exception e) {
@@ -279,11 +286,21 @@ public class Uploader {
 						}
 	            	}
 	            	if(download != null) {
-	            		downloadPhotos(download, false);
+	            		downloadPhotos(download, false, false);
 	            	}
 	            	if(downloadById != null) {
-	            		downloadPhotos(downloadById, true);
-	            	}	            	
+	            		downloadPhotos(downloadById, true, false);
+	            	}	   
+	            	if(migrate != null) {
+	            		migrate(migrate);
+	            	}
+	            	if(migrateById != null) {
+	            		migrateById(migrateById);
+	            	}
+	            	if(downloadAll) {
+	            		downloadPhotos();
+	            	}
+	            	
 	            }
 			}
 		} catch (Exception e) {
@@ -291,6 +308,16 @@ public class Uploader {
 			log.error(e);
 		}
     }
+
+	private void migrateById(String migrateById2) throws IOException {
+		// TODO Auto-generated method stub
+		throw new IOException("Not implemented.");
+	}
+
+	private void migrate(String migrate2) throws IOException {
+		// TODO Auto-generated method stub
+		throw new IOException("Not implemented.");
+	}
 
 	/**
      * search duplicate photos (had the same names) in photoset and delete them
@@ -848,10 +875,22 @@ public class Uploader {
 			log.debug(e.getMessage());
 		}
     }
+   
     
-    private void downloadPhotos(String albumTitle, boolean byId) throws FlickrException, KeyManagementException, NoSuchAlgorithmException, IOException {    	
+    private void downloadPhotos() throws FlickrException, KeyManagementException, NoSuchAlgorithmException, IOException {    	
+    	Photosets sets = f.getPhotosetsInterface().getList(auth.getUser().getId());
+        for(Photoset s: sets.getPhotosets()) {
+        	downloadPhotos(s.getId(), true, true);
+        }
+    }
+    
+    private void downloadPhotos(String albumTitle, boolean byId, boolean noQuestions) throws FlickrException, KeyManagementException, NoSuchAlgorithmException, IOException {    	
 		HttpsURLConnection.setDefaultSSLSocketFactory(Utils.trustAllSocketFactory());    	
     	Photoset s = findSet(albumTitle, byId);
+    	if(s == null) {
+    		throw new IOException("Set not found.");
+    	}
+    	log.info("Processing photoset "+s.getId()+" ("+s.getTitle()+") ...");
         
     	Set<String> extras = new HashSet<String>();
     	String q = downloadQuality==null?Extras.URL_M
@@ -873,14 +912,27 @@ public class Uploader {
     	extras.add(q);
     	extras.add(Extras.ORIGINAL_FORMAT);
     	
-    	Pattern pattern = Pattern.compile(FILE_PATTERN);
+    	final Pattern pattern = Pattern.compile(FILE_PATTERN);
     	
     	int page = 1;
         int pages = 0;
         do {
         	PhotoList<Photo> pl = f.getPhotosetsInterface().getPhotos(s.getId(), extras, Flickr.PRIVACY_LEVEL_NO_FILTER, 500, page);
 
-        	if(page == 1) {
+        	File outDir = new File(DOWNLOAD_PREFIX+downloadQuality+"_"+ s.getId()+"_"+s.getTitle());
+        	if(outDir.exists() && outDir.isDirectory()) {
+        		long filesCount = outDir.list(new FilenameFilter() {
+					public boolean accept(File dir, String name) {
+						return pattern.matcher(name).matches();
+					}
+				}).length;
+        		if(filesCount == pl.getTotal()) {
+        			log.info("Skipping photoset "+s.getId()+" ("+s.getTitle()+"), filesCount in directory "+outDir.getAbsolutePath()+": "+filesCount);
+        			continue;
+        		}
+        	}
+        	
+        	if(page == 1 && !noQuestions) {
 	    		System.out.print("\nDownload (quality "+quality+") " + pl.getTotal() + " photos (y/n) ? ");						
 	    		Scanner in = new Scanner(System.in);
 	    		String yn = in.nextLine();
@@ -904,7 +956,6 @@ public class Uploader {
             	if(!pattern.matcher(outFileTitle).matches()) {
             		outFileTitle += "."+p.getOriginalFormat();
             	}            	
-            	File outDir = new File(DOWNLOAD_PREFIX+quality+"_"+ s.getId());
         		if(!outDir.isDirectory() && !outDir.exists()) {
         			boolean ok = outDir.mkdir();
         			if(!ok) {
@@ -913,6 +964,11 @@ public class Uploader {
         		}
         		File outFile = new File(outDir, outFileTitle);
                 
+        		if(outFile.exists()) {
+        			log.info("Skipping "+urlString + ", fileExists: " + outFile);
+        			continue;
+        		}
+        		
             	log.info("Downloading "+urlString + " -> " + outFile+" ...");
             	            	
         		URL url = new URL(urlString);
