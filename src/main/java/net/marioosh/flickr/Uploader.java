@@ -62,6 +62,8 @@ import com.flickr4java.flickr.photosets.Photoset;
 import com.flickr4java.flickr.photosets.Photosets;
 import com.flickr4java.flickr.uploader.UploadMetaData;
 
+import net.marioosh.google.GooglePhotos;
+
 /**
  * Flickr command-line uploader
  * Uploads all files from selected directory and subdirectories
@@ -290,7 +292,12 @@ public class Uploader {
 	            	}
 	            	if(downloadById != null) {
 	            		downloadPhotos(downloadById, true, false);
-	            	}	   
+	            	}
+	            	
+	            	if(migrate != null || migrateById != null) {
+	            		GooglePhotos.init();
+	            	}
+	            	
 	            	if(migrate != null) {
 	            		migrate(migrate);
 	            	}

@@ -49,10 +49,26 @@
 	</build>
 	<dependencies>
 		<dependency>
-			<groupId>com.google.api-client</groupId>
-			<artifactId>google-api-client</artifactId>
-			<version>1.25.0</version>
+			<groupId>com.google.photos.library</groupId>
+			<artifactId>google-photos-library-client</artifactId>
+			<version>1.0.1</version>
+		</dependency>		
+		<dependency>
+		    <groupId>com.google.api-client</groupId>
+		    <artifactId>google-api-client</artifactId>
+		    <version>1.26.0</version>
 		</dependency>
+		<dependency>
+		    <groupId>com.google.oauth-client</groupId>
+		    <artifactId>google-oauth-client-java6</artifactId>
+		    <version>1.26.0</version>
+		</dependency>
+		<dependency>
+		    <groupId>com.google.oauth-client</groupId>
+		    <artifactId>google-oauth-client-jetty</artifactId>
+		    <version>1.26.0</version>
+		</dependency>
+				
 		<dependency>
 			<groupId>com.flickr4java</groupId>
 			<artifactId>flickr4java</artifactId>
