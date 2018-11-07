@@ -105,10 +105,10 @@ public class GooglePhotos {
 	
 	public static PhotosLibraryClient getClient(String credentialsPath) throws IOException, GeneralSecurityException {
 		
-		String osArch = System.getProperty("os.arch");
-		log.info("os.arch: " + osArch);
-		if(!"amd64".equals(osArch)) {
-			throw new IOException("gRPC problems with Java 32-bit, use Java 64-bit. More info: https://github.com/grpc/grpc-java/blob/master/SECURITY.md#troubleshooting");
+		String osArch = System.getProperty("sun.arch.data.model");
+		log.info("Detected Java: " + osArch +"bit");
+		if(!"64".equals(osArch)) {
+			log.warn("WARNING: gRPC problems with Java 32-bit, consider use Java 64-bit. More info: https://github.com/grpc/grpc-java/blob/master/SECURITY.md#troubleshooting\n\n");
 		}
 		
 		httpTransport = GoogleNetHttpTransport.newTrustedTransport();
