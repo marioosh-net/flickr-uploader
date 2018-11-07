@@ -61,6 +61,7 @@ import com.flickr4java.flickr.photos.SearchParameters;
 import com.flickr4java.flickr.photosets.Photoset;
 import com.flickr4java.flickr.photosets.Photosets;
 import com.flickr4java.flickr.uploader.UploadMetaData;
+import com.google.photos.library.v1.PhotosLibraryClient;
 
 import net.marioosh.google.GooglePhotos;
 
@@ -128,6 +129,9 @@ public class Uploader {
     static String migrate;
     static String downloadQuality;
     static boolean downloadAll;
+    
+    static PhotosLibraryClient googleClient;
+    static String googleApiCredentialPath;
     
     public static void main(String[] args) {
         try {
@@ -252,6 +256,11 @@ public class Uploader {
     public Uploader() {
     	try {
 			auth = auth();
+			
+        	if(migrate != null || migrateById != null) {
+        		googleClient = GooglePhotos.getClient(googleApiCredentialPath);
+        	}
+			
 			if(auth != null) {
 				getSets();
 	            if (auth.getPermission().equals(Permission.WRITE) || auth.getPermission().equals(Permission.DELETE)) {
@@ -292,10 +301,6 @@ public class Uploader {
 	            	}
 	            	if(downloadById != null) {
 	            		downloadPhotos(downloadById, true, false);
-	            	}
-	            	
-	            	if(migrate != null || migrateById != null) {
-	            		GooglePhotos.authorize(null);
 	            	}
 	            	
 	            	if(migrate != null) {

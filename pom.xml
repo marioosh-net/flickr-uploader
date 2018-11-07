@@ -68,6 +68,11 @@
 		    <artifactId>google-oauth-client-jetty</artifactId>
 		    <version>1.26.0</version>
 		</dependency>
+		<dependency>
+		    <groupId>io.grpc</groupId>
+		    <artifactId>grpc-okhttp</artifactId>
+		    <version>1.10.1</version>
+		</dependency>
 				
 		<dependency>
 			<groupId>com.flickr4java</groupId>
