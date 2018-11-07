@@ -6,8 +6,9 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.security.GeneralSecurityException;
-import java.util.Collections;
+import java.util.Arrays;
 import java.util.Iterator;
+import java.util.List;
 
 import org.apache.log4j.Logger;
 
@@ -57,8 +58,14 @@ public class GooglePhotos {
 			".ssh"+File.separatorChar+"credentials.json";
 
 	/**
-	 * scopes: https://developers.google.com/identity/protocols/googlescopes
-	 * 
+	 * Scopes: 
+	 * https://developers.google.com/photos/library/guides/authentication-authorization
+	 */
+	private static final List<String> REQUIRED_SCOPES = Arrays.asList(
+		"https://www.googleapis.com/auth/photoslibrary.readonly",
+		"https://www.googleapis.com/auth/photoslibrary.appendonly");
+	  
+	/**
 	 * @param credentialsPath
 	 * @return
 	 * @throws IOException 
@@ -80,7 +87,7 @@ public class GooglePhotos {
 		    
 		// set up authorization code flow
 		GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(httpTransport, JSON_FACTORY,
-				clientSecrets, Collections.singleton("https://www.googleapis.com/auth/drive"))
+				clientSecrets, REQUIRED_SCOPES)
 						.setDataStoreFactory(dataStoreFactory).build();
 		// authorize
 		Credential credential = new AuthorizationCodeInstalledApp(flow, new LocalServerReceiver()).authorize("user");
@@ -97,6 +104,12 @@ public class GooglePhotos {
 	}
 	
 	public static PhotosLibraryClient getClient(String credentialsPath) throws IOException, GeneralSecurityException {
+		
+		String osArch = System.getProperty("os.arch");
+		log.info("os.arch: " + osArch);
+		if(!"amd64".equals(osArch)) {
+			throw new IOException("gRPC problems with Java 32-bit, use Java 64-bit. More info: https://github.com/grpc/grpc-java/blob/master/SECURITY.md#troubleshooting");
+		}
 		
 		httpTransport = GoogleNetHttpTransport.newTrustedTransport();
 		dataStoreFactory = new FileDataStoreFactory(DATA_STORE_DIR);

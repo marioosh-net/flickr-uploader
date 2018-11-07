@@ -6,9 +6,20 @@
 	<version>0.0.1-SNAPSHOT</version>
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<os.detected.classifier>linux-x86_64</os.detected.classifier>
 	</properties>
 	<build>
-	   <finalName>flickr-uploader</finalName>
+		<finalName>flickr-uploader</finalName>
+	   
+		<extensions>
+			<!-- Use os-maven-plugin to initialize the "os.detected" properties -->
+			<extension>
+				<groupId>kr.motd.maven</groupId>
+				<artifactId>os-maven-plugin</artifactId>
+				<version>1.5.0.Final</version>
+			</extension>
+		</extensions>
+    	   
 		<plugins>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
@@ -72,8 +83,14 @@
 			<groupId>com.google.api</groupId>
 			<artifactId>gax</artifactId>
 			<version>1.34.0</version>
-		</dependency>		
+		</dependency>
 		<dependency>
+		    <groupId>io.grpc</groupId>
+		    <artifactId>grpc-netty-shaded</artifactId>
+		    <version>1.10.1</version>
+		</dependency>
+				
+		<!-- dependency>
 		    <groupId>io.grpc</groupId>
 		    <artifactId>grpc-protobuf</artifactId>
 		    <version>1.10.1</version>
@@ -82,12 +99,25 @@
 		    <groupId>io.grpc</groupId>
 		    <artifactId>grpc-stub</artifactId>
 		    <version>1.10.1</version>
-		</dependency>		
-		<dependency>
+		</dependency -->
+		
+		<!-- https://github.com/grpc/grpc-java/blob/master/SECURITY.md#troubleshooting -->
+		<!-- dependency>
 		    <groupId>io.grpc</groupId>
-		    <artifactId>grpc-okhttp</artifactId>
+		    <artifactId>grpc-netty</artifactId>
 		    <version>1.10.1</version>
-		</dependency>
+		</dependency-->
+		<!-- dependency>
+		    <groupId>io.netty</groupId>
+		    <artifactId>netty-handler</artifactId>
+		    <version>4.1.17.Final</version>
+		</dependency-->
+		<!-- dependency>
+		    <groupId>io.netty</groupId>
+		    <artifactId>netty-tcnative-boringssl-static</artifactId>
+		    <version>2.0.7.Final</version>
+		    <classifier>${os.detected.classifier}</classifier>
+		</dependency-->
 				
 		<dependency>
 			<groupId>com.flickr4java</groupId>
