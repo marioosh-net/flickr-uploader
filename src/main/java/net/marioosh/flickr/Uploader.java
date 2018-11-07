@@ -295,7 +295,7 @@ public class Uploader {
 	            	}
 	            	
 	            	if(migrate != null || migrateById != null) {
-	            		GooglePhotos.init();
+	            		GooglePhotos.authorize(null);
 	            	}
 	            	
 	            	if(migrate != null) {
