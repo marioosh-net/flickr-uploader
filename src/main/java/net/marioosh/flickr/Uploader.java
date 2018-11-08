@@ -11,9 +11,6 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.FilenameFilter;
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.URL;
-import java.net.URLConnection;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.text.SimpleDateFormat;
@@ -61,7 +58,7 @@ import com.flickr4java.flickr.photos.SearchParameters;
 import com.flickr4java.flickr.photosets.Photoset;
 import com.flickr4java.flickr.photosets.Photosets;
 import com.flickr4java.flickr.uploader.UploadMetaData;
-import com.google.photos.library.v1.PhotosLibraryClient;
+import com.google.photos.library.v1.proto.Album;
 
 import net.marioosh.google.GooglePhotos;
 
@@ -108,6 +105,11 @@ public class Uploader {
 	 */
     private Flickr f;
     private Auth auth;
+    
+    /**
+     * Entry point to Google Photos
+     */
+    private GooglePhotos googlePhotos;
 
     /**
      * params
@@ -129,8 +131,8 @@ public class Uploader {
     static String migrate;
     static String downloadQuality;
     static boolean downloadAll;
+    static boolean migrateAll;
     
-    static PhotosLibraryClient googleClient;
     static String googleApiCredentialPath;
     
     public static void main(String[] args) {
@@ -153,6 +155,8 @@ public class Uploader {
             Option mOpt = new Option("m", true, "migrate all photos of one album, by title");
             Option m2Opt = new Option("m2", true, "migrate all photos of one album, by photosetId");
             Option gaOpt = new Option("ga", false, "download all photos of all albums");
+            Option maOpt = new Option("ma", false, "migrate all photos of all albums");
+            Option cpOpt = new Option("cp", true, "Google Photos credentials.json path");
             
             tOpt.setArgName("token");
             tsOpt.setArgName("token_scret");
@@ -164,6 +168,7 @@ public class Uploader {
             mOpt.setArgName("photoset_title");
             m2Opt.setArgName("photoset_id");
             gqOpt.setArgName("quality");
+            cpOpt.setArgName("credentials_json");
             
             options.addOption(tOpt);
             options.addOption(tsOpt);
@@ -182,6 +187,7 @@ public class Uploader {
             options.addOption(mOpt);
             options.addOption(m2Opt);
             options.addOption(gaOpt);
+            options.addOption(maOpt);
 
             log.debug("HOME: "+ System.getProperty("user.home"));
 
@@ -245,6 +251,12 @@ public class Uploader {
             if(cmd.hasOption("ga")) {
             	downloadAll = true;
             }
+            if(cmd.hasOption("ma")) {
+            	migrateAll = true;
+            }            
+            if(cmd.hasOption("cp")) {
+            	googleApiCredentialPath = cmd.getOptionValue("cp");
+            }
 
             new Uploader();
         } catch (Exception e) {
@@ -257,8 +269,9 @@ public class Uploader {
     	try {
 			auth = auth();
 			
-        	if(migrate != null || migrateById != null) {
-        		googleClient = GooglePhotos.getClient(googleApiCredentialPath);
+        	if(migrate != null || migrateById != null || migrateAll) {
+        		// init only
+        		googlePhotos = GooglePhotos.getInstance(googleApiCredentialPath);
         	}
 			
 			if(auth != null) {
@@ -304,11 +317,14 @@ public class Uploader {
 	            	}
 	            	
 	            	if(migrate != null) {
-	            		migrate(migrate);
+	            		migrate(migrate, false);
 	            	}
 	            	if(migrateById != null) {
-	            		migrateById(migrateById);
+	            		migrate(migrateById, true);
 	            	}
+	            	if(migrateAll) {
+	            		migrateAll();
+	            	}	            	
 	            	if(downloadAll) {
 	            		downloadPhotos();
 	            	}
@@ -321,16 +337,54 @@ public class Uploader {
 		}
     }
 
-	private void migrateById(String migrateById2) throws IOException {
-		// TODO Auto-generated method stub
-		throw new IOException("Not implemented.");
+	private void migrateAll() throws FlickrException, IOException {
+    	Photosets sets = f.getPhotosetsInterface().getList(auth.getUser().getId());
+        for(Photoset s: sets.getPhotosets()) {
+        	migrate(s.getId(), true);
+        }		
 	}
 
-	private void migrate(String migrate2) throws IOException {
-		// TODO Auto-generated method stub
-		throw new IOException("Not implemented.");
-	}
+	private void migrate(String nameOrId, boolean byId) throws IOException, FlickrException {
 
+		Photoset s = findSet(nameOrId, byId);
+		if(s == null) {
+			throw new IOException("Photoset not exist.");
+		}
+		String albumTitle = s.getTitle()+"_"+s.getId();
+		
+		Album a = googlePhotos.findAlbumByTitle(albumTitle);
+		if(a != null) {
+			if(a.getMediaItemsCount() == s.getPhotoCount()) {
+				log.info("Skipped - album with title \""+a.getTitle()+"\" exists and have the same photos count ("+s.getPhotoCount()+") on Flickr and Google Photos");
+				return;
+			}
+		} else {
+			log.info("Creating new album \""+albumTitle+"\" ... ");
+			a = googlePhotos.createAlbum(albumTitle);
+		}
+		
+		if(!googlePhotos.getClient().getAlbum(a.getId()).getIsWriteable()) {
+			throw new IOException("Album \""+a.getTitle()+"\" ("+a.getId()+") not writable.");
+		}
+		
+		Set<String> extras = extras(downloadQuality);
+
+    	int page = 1;
+        int pages = 0;
+        int c = 1;
+        do {
+        	PhotoList<Photo> pl = f.getPhotosetsInterface().getPhotos(s.getId(), extras, Flickr.PRIVACY_LEVEL_NO_FILTER, 500, page);       	
+        	for(Photo p: pl) {
+        		log.info("Copying "+p.getTitle()+" ("+c+"/"+s.getPhotoCount()+") ...");
+        		googlePhotos.migrate(p, downloadQuality, a);
+        		c++;
+        	}
+        	if(page == 1) {
+        		pages = pl.getPages();
+        	}
+        } while (page++ < pages);
+	}
+	
 	/**
      * search duplicate photos (had the same names) in photoset and delete them
      * 
@@ -896,14 +950,7 @@ public class Uploader {
         }
     }
     
-    private void downloadPhotos(String albumTitle, boolean byId, boolean noQuestions) throws FlickrException, KeyManagementException, NoSuchAlgorithmException, IOException {    	
-		HttpsURLConnection.setDefaultSSLSocketFactory(Utils.trustAllSocketFactory());    	
-    	Photoset s = findSet(albumTitle, byId);
-    	if(s == null) {
-    		throw new IOException("Set not found.");
-    	}
-    	log.info("Processing photoset "+s.getId()+" ("+s.getTitle()+") ...");
-        
+    private Set<String> extras(String downloadQuality) {
     	Set<String> extras = new HashSet<String>();
     	String q = downloadQuality==null?Extras.URL_M
 			:downloadQuality.equals("o")?Extras.URL_O
@@ -913,6 +960,21 @@ public class Uploader {
 			:downloadQuality.equals("sq")?Extras.URL_SQ
 			:downloadQuality.equals("t")?Extras.URL_T
 			:Extras.URL_M;
+    	extras.add(q);
+    	extras.add(Extras.ORIGINAL_FORMAT);
+    	return extras;
+    }
+    
+    private void downloadPhotos(String albumTitle, boolean byId, boolean noQuestions) throws FlickrException, KeyManagementException, NoSuchAlgorithmException, IOException {    	
+		HttpsURLConnection.setDefaultSSLSocketFactory(Utils.trustAllSocketFactory());    	
+    	Photoset s = findSet(albumTitle, byId);
+    	if(s == null) {
+    		throw new IOException("Set not found.");
+    	}
+    	log.info("Processing photoset "+s.getId()+" ("+s.getTitle()+") ...");
+        
+    	Set<String> extras = extras(downloadQuality);
+    	
     	String quality = downloadQuality==null?"medium"
 			:downloadQuality.equals("o")?"original"
 			:downloadQuality.equals("l")?"large"
@@ -921,8 +983,6 @@ public class Uploader {
 			:downloadQuality.equals("sq")?"square"
 			:downloadQuality.equals("t")?"thumbnail"
 			:"medium";    	
-    	extras.add(q);
-    	extras.add(Extras.ORIGINAL_FORMAT);
     	
     	final Pattern pattern = Pattern.compile(FILE_PATTERN);
     	
@@ -954,15 +1014,9 @@ public class Uploader {
 	    		}    	
         	}
         	
-        	for(Photo p: pl) {       		
-            	String urlString = downloadQuality==null?p.getMediumUrl()
-    				:downloadQuality.equals("o")?p.getOriginalUrl()
-    				:downloadQuality.equals("l")?p.getLargeUrl()
-    				:downloadQuality.equals("m")?p.getMediumUrl()
-    				:downloadQuality.equals("s")?p.getSmallUrl()
-    				:downloadQuality.equals("sq")?p.getSquareLargeUrl()
-    				:downloadQuality.equals("t")?p.getThumbnailUrl()
-    				:p.getMediumUrl();
+        	for(Photo p: pl) {
+        		
+            	String urlString = Utils.getPhotoUrl(downloadQuality, p);
 
                 String outFileTitle = p.getTitle();                
             	if(!pattern.matcher(outFileTitle).matches()) {
@@ -982,18 +1036,8 @@ public class Uploader {
         		}
         		
             	log.info("Downloading "+urlString + " -> " + outFile+" ...");
-            	            	
-        		URL url = new URL(urlString);
-        		URLConnection connection = url.openConnection();        		
-        		InputStream in = connection.getInputStream();
-        		FileOutputStream out = new FileOutputStream(outFile);        		
-        		byte[] buffer = new byte[1024];
-        		int len;
-        		while ((len = in.read(buffer)) != -1) {
-        		    out.write(buffer, 0, len);
-        		}
-        		in.close();
-        		out.close();
+            	Utils.downloadUrlToFile(urlString, outFile);
+
         	}
         	if(page == 1) {
         		pages = pl.getPages();

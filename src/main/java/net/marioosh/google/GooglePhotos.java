@@ -5,6 +5,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.RandomAccessFile;
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -12,6 +13,8 @@ import java.util.List;
 
 import org.apache.log4j.Logger;
 
+import com.flickr4java.flickr.FlickrException;
+import com.flickr4java.flickr.photos.Photo;
 import com.google.api.client.auth.oauth2.Credential;
 import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp;
 import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver;
@@ -30,6 +33,17 @@ import com.google.photos.library.v1.PhotosLibraryClient;
 import com.google.photos.library.v1.PhotosLibrarySettings;
 import com.google.photos.library.v1.internal.InternalPhotosLibraryClient.ListAlbumsPagedResponse;
 import com.google.photos.library.v1.proto.Album;
+import com.google.photos.library.v1.proto.BatchCreateMediaItemsResponse;
+import com.google.photos.library.v1.proto.MediaItem;
+import com.google.photos.library.v1.proto.NewMediaItem;
+import com.google.photos.library.v1.proto.NewMediaItemResult;
+import com.google.photos.library.v1.upload.UploadMediaItemRequest;
+import com.google.photos.library.v1.upload.UploadMediaItemResponse;
+import com.google.photos.library.v1.util.NewMediaItemFactory;
+import com.google.rpc.Code;
+import com.google.rpc.Status;
+
+import net.marioosh.flickr.Utils;
 
 public class GooglePhotos {
 
@@ -64,7 +78,16 @@ public class GooglePhotos {
 	private static final List<String> REQUIRED_SCOPES = Arrays.asList(
 		"https://www.googleapis.com/auth/photoslibrary.readonly",
 		"https://www.googleapis.com/auth/photoslibrary.appendonly");
-	  
+	
+	
+	private static GooglePhotos instance;
+	private PhotosLibraryClient client;
+	private String credentialsPath;
+	
+	private GooglePhotos(String credentialsPath) {
+		this.credentialsPath = credentialsPath;
+	}
+	
 	/**
 	 * @param credentialsPath
 	 * @return
@@ -72,7 +95,7 @@ public class GooglePhotos {
 	 * @throws FileNotFoundException 
 	 * @throws Exception
 	 */
-	private static Credentials authorize(String credentialsPath) throws FileNotFoundException, IOException {
+	private Credentials authorize() throws FileNotFoundException, IOException {
 		
 		if(credentialsPath == null) {
 			credentialsPath = DEFAULT_CREDENTIALS_LOCATION;
@@ -98,15 +121,19 @@ public class GooglePhotos {
 	        .setRefreshToken(credential.getRefreshToken())
 	        .build();		
 	}
-	
-	public static PhotosLibraryClient getClient() throws IOException, GeneralSecurityException {
-		return getClient(null);
+
+	public static GooglePhotos getInstance(String credentialsPath) throws IOException, GeneralSecurityException {
+		if(instance == null) {
+			instance = new GooglePhotos(credentialsPath);
+			instance.initClient();
+		}
+		return instance;
 	}
 	
-	public static PhotosLibraryClient getClient(String credentialsPath) throws IOException, GeneralSecurityException {
+	private void initClient() throws IOException, GeneralSecurityException {
 		
 		String osArch = System.getProperty("sun.arch.data.model");
-		log.info("Detected Java: " + osArch +"bit");
+		log.debug("Detected Java: " + osArch +"bit");
 		if(!"64".equals(osArch)) {
 			log.warn("WARNING: gRPC problems with Java 32-bit, consider use Java 64-bit. More info: https://github.com/grpc/grpc-java/blob/master/SECURITY.md#troubleshooting\n\n");
 		}
@@ -115,20 +142,125 @@ public class GooglePhotos {
 		dataStoreFactory = new FileDataStoreFactory(DATA_STORE_DIR);
 		
 		// authorization
-		Credentials credentials = authorize(credentialsPath);
+		Credentials credentials = authorize();
 
 		PhotosLibrarySettings settings = PhotosLibrarySettings.newBuilder()
 				.setCredentialsProvider(FixedCredentialsProvider.create(credentials)).build();
 		
-		return PhotosLibraryClient.initialize(settings);
+		this.client = PhotosLibraryClient.initialize(settings);
 	}
-
+	
+	public Album findAlbumByTitle(String title) {
+		ListAlbumsPagedResponse l = client.listAlbums();
+		Iterator<Album> it = l.iterateAll().iterator();
+		while(it.hasNext()) {
+			Album a = it.next();
+			if(a.getTitle().equals(title)) {
+				return a;
+			}
+		}
+		return null;
+	}
+	
+	public PhotosLibraryClient getClient() {
+		return client;
+	}
+	
 	public static void main(String[] args) throws IOException, GeneralSecurityException {
-		ListAlbumsPagedResponse response = getClient(null).listAlbums();
+		GooglePhotos googlePhotos = GooglePhotos.getInstance(null);
+		ListAlbumsPagedResponse response = googlePhotos.getClient().listAlbums();
 		Iterator<Album> it = response.iterateAll().iterator();
 		while(it.hasNext()) {
 			Album album = it.next();
 			log.info(album.getTitle());
+		}
+	}
+
+	/**
+	 * copy Flickr photo to Google Photos album
+	 * @param p
+	 * @param downloadQuality
+	 * @param a
+	 * @throws FlickrException 
+	 * @throws IOException 
+	 */
+	public void migrate(Photo p, String downloadQuality, Album a) throws FlickrException, IOException {
+		String urlString = Utils.getPhotoUrl(downloadQuality, p);
+		File outFile = File.createTempFile("flickr_", ".tmp");
+		Utils.downloadUrlToFile(urlString, outFile);		
+		String uploadToken = upload(outFile, p.getTitle());
+		createMedia(uploadToken, null, a.getId());
+	}
+	
+	public Album createAlbum(String albumTitle) {		
+		Album newAlbum = Album.newBuilder()
+				.setIsWriteable(true)
+				.setTitle(albumTitle).build();
+		Album createdAlbum = client.createAlbum(newAlbum);
+		log.debug("Album \""+albumTitle+"\" created.");
+		return createdAlbum;
+	}
+	
+	/**
+	 * 
+	 * @param file uploade file
+	 * @param fileName fileName
+	 * @return uploadToken
+	 * @throws IOException 
+	 */
+	public String upload(File file, String fileName) throws IOException {
+		log.debug("Uploading "+fileName+" ...");
+		UploadMediaItemRequest uploadRequest = UploadMediaItemRequest.newBuilder()
+			// filename of the media item along with the file extension
+			.setFileName(fileName)
+			.setDataFile(new RandomAccessFile(file, "r")).build();		
+		UploadMediaItemResponse uploadResponse = client.uploadMediaItem(uploadRequest);
+		if (uploadResponse.getError().isPresent()) {
+		    // If the upload results in an error, handle it
+			UploadMediaItemResponse.Error error = uploadResponse.getError().get();
+			throw new IOException("Upload failed", error.getCause());
+		  } else {
+		    // If the upload is successful, get the uploadToken
+			log.debug("Uploaded "+fileName+".");
+		    return uploadResponse.getUploadToken().get();
+		    // Use this upload token to create a media item
+		  }		
+	}
+	
+	public MediaItem createMedia(String uploadToken, String albumId) throws IOException {
+		return createMedia(uploadToken, null, albumId);
+	}
+	
+	public MediaItem createMedia(String uploadToken, String itemDescription, String albumId) throws IOException {
+		try {
+			log.debug("Creating MediaItem ...");
+			// Create a NewMediaItem with the uploadToken obtained from the previous upload
+			// request, and a description
+			NewMediaItem newMediaItem = itemDescription!=null
+					?NewMediaItemFactory.createNewMediaItem(uploadToken, itemDescription)
+					:NewMediaItemFactory.createNewMediaItem(uploadToken);
+			List<NewMediaItem> newItems = Arrays.asList(newMediaItem);
+	
+			BatchCreateMediaItemsResponse response = albumId!=null
+					?client.batchCreateMediaItems(albumId, newItems)
+					:client.batchCreateMediaItems(newItems);
+			if(response.getNewMediaItemResultsList().size() == 1) {
+				NewMediaItemResult itemsResponse = response.getNewMediaItemResultsList().get(0);
+				Status status = itemsResponse.getStatus();
+				if (status.getCode() == Code.OK_VALUE) {
+					// The item is successfully created in the user's library
+					log.debug("MediaItem created.");
+					return itemsResponse.getMediaItem();
+				} else {
+					// The item could not be created. Check the status and try again
+					throw new IOException("Creating mediaItem failed: " + status.getMessage() + ", code " + status.getCode());
+				}			
+			} else {
+				throw new IOException("Creating mediaItem failed: Too many new media item results");
+			}
+		} catch (Exception e) {
+			log.error(e);
+			throw new IOException(e);
 		}
 	}
 }
