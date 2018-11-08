@@ -21,6 +21,7 @@
 
 	<!-- Root Logger -->
 	<root>
+        <level value="INFO" />
 		<appender-ref ref="console" />
 		<appender-ref ref="file" />
 	</root>
