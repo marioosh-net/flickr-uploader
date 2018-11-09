@@ -210,7 +210,7 @@ public class GooglePhotos {
 					return t.getValue();
 				}
 			}).collect(Collectors.toCollection(supplier));
-			description = tags.toString();
+			description = tags.toString().replaceAll("[\\[\\]]", "");
     	}
 		createMedia(uploadToken, description, a.getId());
 		outFile.delete();
