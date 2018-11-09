@@ -374,9 +374,14 @@ public class Uploader {
         int c = 1;
         do {
         	PhotoList<Photo> pl = f.getPhotosetsInterface().getPhotos(s.getId(), extras, Flickr.PRIVACY_LEVEL_NO_FILTER, 500, page);       	
+        	List<String> photoTitles = googlePhotos.listFilenames(a);
         	for(Photo p: pl) {
-        		log.info("Copying "+p.getTitle()+" ("+c+"/"+s.getPhotoCount()+") ...");
-        		googlePhotos.migrate(p, downloadQuality, a);
+        		if(photoTitles.contains(p.getTitle())) {
+        			log.info("Skipping "+p.getTitle()+", the same filename exists in Google Photos album.");
+        		} else {
+        			log.info("Copying "+p.getTitle()+" ("+c+"/"+s.getPhotoCount()+") ...");
+        			googlePhotos.migrate(p, downloadQuality, a);
+        		}
         		c++;
         	}
         	if(page == 1) {

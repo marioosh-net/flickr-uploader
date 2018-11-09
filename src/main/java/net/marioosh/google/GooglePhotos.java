@@ -7,9 +7,13 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.RandomAccessFile;
 import java.security.GeneralSecurityException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.function.Function;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import org.apache.log4j.Logger;
 
@@ -32,11 +36,13 @@ import com.google.auth.oauth2.UserCredentials;
 import com.google.photos.library.v1.PhotosLibraryClient;
 import com.google.photos.library.v1.PhotosLibrarySettings;
 import com.google.photos.library.v1.internal.InternalPhotosLibraryClient.ListAlbumsPagedResponse;
+import com.google.photos.library.v1.internal.InternalPhotosLibraryClient.SearchMediaItemsPagedResponse;
 import com.google.photos.library.v1.proto.Album;
 import com.google.photos.library.v1.proto.BatchCreateMediaItemsResponse;
 import com.google.photos.library.v1.proto.MediaItem;
 import com.google.photos.library.v1.proto.NewMediaItem;
 import com.google.photos.library.v1.proto.NewMediaItemResult;
+import com.google.photos.library.v1.proto.SearchMediaItemsRequest;
 import com.google.photos.library.v1.upload.UploadMediaItemRequest;
 import com.google.photos.library.v1.upload.UploadMediaItemResponse;
 import com.google.photos.library.v1.util.NewMediaItemFactory;
@@ -191,6 +197,34 @@ public class GooglePhotos {
 		String uploadToken = upload(outFile, p.getTitle());
 		createMedia(uploadToken, null, a.getId());
 		outFile.delete();
+	}
+	
+	public List<String> listFilenames(Album a) {
+		List<MediaItem> l = listPhotos(a);
+		Supplier<List<String>> supplier = new Supplier<List<String>>() {
+    		public List<String> get() {
+    			return new ArrayList<String>();
+    		}
+    	};
+		return l.stream().map(new Function<MediaItem, String>() {
+    		public String apply(MediaItem t) {
+    			return t.getFilename();
+    		}
+    	}).collect(Collectors.toCollection(supplier));
+	}
+	
+	public List<MediaItem> listPhotos(Album a) {
+		List<MediaItem> l = new ArrayList<MediaItem>();
+		SearchMediaItemsRequest req = SearchMediaItemsRequest.newBuilder()
+				.setAlbumId(a.getId())
+				.build();
+		
+		SearchMediaItemsPagedResponse response = client.searchMediaItems(req);
+		Iterator<MediaItem> it = response.iterateAll().iterator();
+		while(it.hasNext()) {
+			l.add(it.next());
+		}
+		return l;
 	}
 	
 	public Album createAlbum(String albumTitle) {		
