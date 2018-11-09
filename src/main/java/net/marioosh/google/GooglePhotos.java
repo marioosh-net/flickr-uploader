@@ -9,6 +9,7 @@ import java.io.RandomAccessFile;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.Function;
@@ -19,6 +20,7 @@ import org.apache.log4j.Logger;
 
 import com.flickr4java.flickr.FlickrException;
 import com.flickr4java.flickr.photos.Photo;
+import com.flickr4java.flickr.tags.Tag;
 import com.google.api.client.auth.oauth2.Credential;
 import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp;
 import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver;
@@ -195,7 +197,22 @@ public class GooglePhotos {
 		File outFile = File.createTempFile("flickr_", ".tmp");
 		Utils.downloadUrlToFile(urlString, outFile);		
 		String uploadToken = upload(outFile, p.getTitle());
-		createMedia(uploadToken, null, a.getId());
+		Supplier<List<String>> supplier = new Supplier<List<String>>() {
+    		public List<String> get() {
+    			return new ArrayList<String>();
+    		}
+    	};
+    	String description = null;
+    	Collection<Tag> t = p.getTags();
+    	if(t != null && !t.isEmpty()) {
+			List<String> tags = t.stream().map(new Function<Tag, String>() {
+				public String apply(Tag t) {
+					return t.getValue();
+				}
+			}).collect(Collectors.toCollection(supplier));
+			description = tags.toString();
+    	}
+		createMedia(uploadToken, description, a.getId());
 		outFile.delete();
 	}
 	
