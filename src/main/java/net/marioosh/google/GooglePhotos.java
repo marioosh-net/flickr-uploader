@@ -190,6 +190,7 @@ public class GooglePhotos {
 		Utils.downloadUrlToFile(urlString, outFile);		
 		String uploadToken = upload(outFile, p.getTitle());
 		createMedia(uploadToken, null, a.getId());
+		outFile.delete();
 	}
 	
 	public Album createAlbum(String albumTitle) {		
