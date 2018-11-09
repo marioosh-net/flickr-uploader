@@ -370,6 +370,7 @@ public class Uploader {
 		}
 		
 		Set<String> extras = extras(downloadQuality);
+		extras.add(Extras.TAGS);
 
     	int page = 1;
         int pages = 0;
