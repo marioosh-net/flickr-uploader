@@ -351,6 +351,8 @@ public class Uploader {
 			throw new IOException("Photoset not exist.");
 		}
 		String albumTitle = s.getTitle()+" "+s.getId();
+		log.info("-------------------------------------------------------------------------");	
+		log.info("Processing photoset \""+s.getTitle()+"\" ("+s.getId()+") ... ");
 		
 		Album a = googlePhotos.findAlbumByTitle(albumTitle);
 		if(a != null) {
