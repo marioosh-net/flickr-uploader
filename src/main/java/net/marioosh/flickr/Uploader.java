@@ -60,6 +60,7 @@ import com.flickr4java.flickr.photosets.Photosets;
 import com.flickr4java.flickr.uploader.UploadMetaData;
 import com.google.photos.library.v1.proto.Album;
 
+import net.marioosh.google.CreateMediaInException;
 import net.marioosh.google.GooglePhotos;
 
 /**
@@ -350,11 +351,16 @@ public class Uploader {
 	private void migrateAll() throws FlickrException, IOException {
     	Photosets sets = f.getPhotosetsInterface().getList(auth.getUser().getId());
         for(Photoset s: sets.getPhotosets()) {
-        	migrate(s.getId(), true);
+        	try {
+        		migrate(s.getId(), true);
+        	} catch (CreateMediaInException e) {
+        		log.info("Trying next photoset.");
+        		continue; // try next photoset
+        	}
         }		
 	}
 
-	private void migrate(String nameOrId, boolean byId) throws IOException, FlickrException {
+	private void migrate(String nameOrId, boolean byId) throws IOException, FlickrException, CreateMediaInException {
 
 		Photoset s = findSet(nameOrId, byId);
 		if(s == null) {
@@ -376,7 +382,8 @@ public class Uploader {
 		}
 		
 		if(!googlePhotos.getClient().getAlbum(a.getId()).getIsWriteable()) {
-			throw new IOException("Album \""+a.getTitle()+"\" ("+a.getId()+") not writable.");
+			//throw new IOException("Album \""+a.getTitle()+"\" ("+a.getId()+") not writable.");
+			log.warn("Album \""+a.getTitle()+"\" ("+a.getId()+") not writable.");
 		}
 		
 		Set<String> extras = extras(downloadQuality);

@@ -191,11 +191,14 @@ public class GooglePhotos {
 	 * @param a
 	 * @throws FlickrException 
 	 * @throws IOException 
+	 * @throws CreateMediaInException 
 	 */
-	public void migrate(Photo p, String downloadQuality, Album a) throws FlickrException, IOException {
+	public void migrate(Photo p, String downloadQuality, Album a) throws FlickrException, IOException, CreateMediaInException {
+		
 		String urlString = Utils.getPhotoUrl(downloadQuality, p);
 		File outFile = File.createTempFile("flickr_", ".tmp");
 		outFile.deleteOnExit();
+		
 		Utils.downloadUrlToFile(urlString, outFile);		
 		String uploadToken = upload(outFile, p.getTitle());
 		Supplier<List<String>> supplier = new Supplier<List<String>>() {
@@ -213,8 +216,14 @@ public class GooglePhotos {
 			}).collect(Collectors.toCollection(supplier));
 			description = tags.toString().replaceAll("[\\[\\]]", "");
     	}
-		createMedia(uploadToken, description, a.getId());
-		outFile.delete();
+    	try {
+    		createMedia(uploadToken, description, a.getId());
+		} catch (IOException e) {
+			log.error(e);
+			throw new CreateMediaInException();
+		} finally {
+			outFile.delete();
+		}
 	}
 	
 	public List<String> listFilenames(Album a) {
