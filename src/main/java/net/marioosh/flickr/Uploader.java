@@ -262,6 +262,16 @@ public class Uploader {
         } catch (Exception e) {
         	e.printStackTrace();
             log.debug(e.getMessage());
+        } finally {
+        	log.info("Clearing temporary files...");
+        	for(File f: new File(System.getProperty("java.io.tmpdir")).listFiles(new FilenameFilter() {
+				public boolean accept(File dir, String name) {
+					return name.startsWith("flickr_") && name.endsWith(".tmp");
+				}
+			})) {
+        		f.delete();
+        	};
+        	log.info("EXIT");
         }
     }
 

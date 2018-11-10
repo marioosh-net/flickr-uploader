@@ -195,6 +195,7 @@ public class GooglePhotos {
 	public void migrate(Photo p, String downloadQuality, Album a) throws FlickrException, IOException {
 		String urlString = Utils.getPhotoUrl(downloadQuality, p);
 		File outFile = File.createTempFile("flickr_", ".tmp");
+		outFile.deleteOnExit();
 		Utils.downloadUrlToFile(urlString, outFile);		
 		String uploadToken = upload(outFile, p.getTitle());
 		Supplier<List<String>> supplier = new Supplier<List<String>>() {
