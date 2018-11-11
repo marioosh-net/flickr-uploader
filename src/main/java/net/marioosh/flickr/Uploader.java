@@ -142,6 +142,8 @@ public class Uploader {
     private static boolean checkMigrated;
     
     public static void main(String[] args) {
+		log.info("=========================================================================");    	
+    	log.info("START");
         try {
             Options options = new Options();
             Option tOpt = new Option("t", true, "auth token");
