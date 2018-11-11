@@ -11,6 +11,9 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.FilenameFilter;
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.PrintWriter;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.text.SimpleDateFormat;
@@ -99,7 +102,8 @@ public class Uploader {
 	
 	final static String TOKEN_FILE = ".flickr-token";
 	final static String CONFIG_FILE = ".flickr-uploader";
-
+	final static String MIGRATED_ALBUM_LIST_FILE = ".flickr-migrated";
+	
 	/**
 	 * Main entry point for the Flickrj API
 	 */
@@ -134,6 +138,8 @@ public class Uploader {
     static boolean migrateAll;
     
     static String googleApiCredentialPath;
+    private static List<String> migratedPhotosets;
+    private static boolean checkMigrated;
     
     public static void main(String[] args) {
         try {
@@ -157,6 +163,7 @@ public class Uploader {
             Option gaOpt = new Option("ga", false, "download all photos of all albums");
             Option maOpt = new Option("ma", false, "migrate all photos of all albums");
             Option cpOpt = new Option("cp", true, "Google Photos credentials.json path");
+            Option cmOpt = new Option("cm", false, "Check migrated list file (.flickr-migrated)");
             
             tOpt.setArgName("token");
             tsOpt.setArgName("token_scret");
@@ -188,6 +195,7 @@ public class Uploader {
             options.addOption(m2Opt);
             options.addOption(gaOpt);
             options.addOption(maOpt);
+            options.addOption(cmOpt);
 
             log.debug("HOME: "+ System.getProperty("user.home"));
 
@@ -257,6 +265,9 @@ public class Uploader {
             if(cmd.hasOption("cp")) {
             	googleApiCredentialPath = cmd.getOptionValue("cp");
             }
+            if(cmd.hasOption("cm")) {
+            	checkMigrated = true;
+            }
 
             new Uploader();
         } catch (Exception e) {
@@ -271,17 +282,20 @@ public class Uploader {
 			})) {
         		f.delete();
         	};
+        	log.info("Saving migrated list file...");
+        	saveMigrated();
         	log.info("EXIT");
         }
     }
 
-    public Uploader() {
+	public Uploader() {
     	try {
 			auth = auth();
 			
         	if(migrate != null || migrateById != null || migrateAll) {
         		// init only
         		googlePhotos = GooglePhotos.getInstance(googleApiCredentialPath);
+        		loadMigrated(); 
         	}
 			
 			if(auth != null) {
@@ -347,9 +361,50 @@ public class Uploader {
 		}
     }
 
+	private void loadMigrated() {
+		File f = new File(System.getProperty("user.home"), MIGRATED_ALBUM_LIST_FILE);
+		try {
+			FileInputStream in = new FileInputStream(f);
+			ObjectInputStream ois = new ObjectInputStream(in);
+			migratedPhotosets = (List<String>) ois.readObject();
+			ois.close();			
+			if(migratedPhotosets == null) {
+				migratedPhotosets = new ArrayList<String>();
+			}
+		} catch (Exception e) {
+			migratedPhotosets = new ArrayList<String>();
+			log.error("Can't load store migrated list from file ("+f.getAbsolutePath()+").");
+		}
+	}
+	
+    private static void saveMigrated() {
+    	File f = new File(System.getProperty("user.home"), MIGRATED_ALBUM_LIST_FILE);
+		try {
+			FileOutputStream fos = new FileOutputStream(f);
+	    	ObjectOutputStream oos = new ObjectOutputStream(fos);
+	    	oos.writeObject(migratedPhotosets);
+	    	oos.close();		
+		} catch (FileNotFoundException e) {
+			try {
+				boolean created = f.createNewFile();
+				if(!created) {
+					log.warn("Can't create file to store migrated list ("+f.getAbsolutePath()+").");
+				}			
+			} catch (IOException e1) {
+				log.warn("Can't create file to store migrated list ("+f.getAbsolutePath()+").", e1);
+			}
+		} catch (IOException e) {
+			log.warn("Can't create file to store migrated list ("+f.getAbsolutePath()+").", e);
+		}
+    }	
+
 	private void migrateAll() throws FlickrException, IOException {
     	Photosets sets = f.getPhotosetsInterface().getList(auth.getUser().getId());
         for(Photoset s: sets.getPhotosets()) {
+        	if(checkMigrated && migratedPhotosets.contains(s.getId())) {
+        		log.info("Photoset ("+s.getTitle()+", id:"+s.getId()+") is on migrated list, skipping.");
+        		continue;
+        	}
         	migrate(s.getId(), true);
         }		
 	}
@@ -368,6 +423,7 @@ public class Uploader {
 		if(a != null) {
 			if(a.getMediaItemsCount() == s.getPhotoCount()) {
 				log.info("Skipped - album with title \""+a.getTitle()+"\" exists and have the same photos count ("+s.getPhotoCount()+") on Flickr and Google Photos");
+				migratedPhotosets.add(s.getId());
 				return;
 			}
 		} else {
