@@ -13,7 +13,6 @@ import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.io.PrintWriter;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.text.SimpleDateFormat;
@@ -63,8 +62,8 @@ import com.flickr4java.flickr.photosets.Photosets;
 import com.flickr4java.flickr.uploader.UploadMetaData;
 import com.google.photos.library.v1.proto.Album;
 
-import net.marioosh.google.CreateMediaInException;
 import net.marioosh.google.GooglePhotos;
+import net.marioosh.google.NoPermissionToAddPhotoToAlbum;
 
 /**
  * Flickr command-line uploader
@@ -410,14 +409,14 @@ public class Uploader {
         	}
         	try {
         		migrate(s.getId(), true);
-        	} catch (CreateMediaInException e) {
+        	} catch (NoPermissionToAddPhotoToAlbum e) {
         		log.info("Trying next photoset.");
         		continue; // try next photoset
         	}
         }		
 	}
 
-	private void migrate(String nameOrId, boolean byId) throws IOException, FlickrException, CreateMediaInException {
+	private void migrate(String nameOrId, boolean byId) throws IOException, FlickrException {
 
 		Photoset s = findSet(nameOrId, byId);
 		if(s == null) {
@@ -459,7 +458,15 @@ public class Uploader {
         			log.info("Skipping "+p.getTitle()+", the same filename exists in Google Photos album.");
         		} else {
         			log.info("Copying "+p.getTitle()+" ("+c+"/"+s.getPhotoCount()+") ...");
-        			googlePhotos.migrate(p, downloadQuality, a);
+        			try {
+        				googlePhotos.migrate(p, downloadQuality, a);
+        			} catch (IOException e) {
+        				if(e instanceof NoPermissionToAddPhotoToAlbum) {
+        					throw e;
+        				} else {
+        					// continue with next photo
+        				}
+        			}
         		}
         		c++;
         	}

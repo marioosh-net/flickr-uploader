@@ -190,10 +190,9 @@ public class GooglePhotos {
 	 * @param downloadQuality
 	 * @param a
 	 * @throws FlickrException 
-	 * @throws IOException 
-	 * @throws CreateMediaInException 
+	 * @throws IOException  
 	 */
-	public void migrate(Photo p, String downloadQuality, Album a) throws FlickrException, IOException, CreateMediaInException {
+	public void migrate(Photo p, String downloadQuality, Album a) throws FlickrException, IOException {
 		
 		String urlString = Utils.getPhotoUrl(downloadQuality, p);
 		File outFile = File.createTempFile("flickr_", ".tmp");
@@ -218,9 +217,6 @@ public class GooglePhotos {
     	}
     	try {
     		createMedia(uploadToken, description, a.getId());
-		} catch (IOException e) {
-			log.error(e);
-			throw new CreateMediaInException();
 		} finally {
 			outFile.delete();
 		}
@@ -293,7 +289,7 @@ public class GooglePhotos {
 		return createMedia(uploadToken, null, albumId);
 	}
 	
-	public MediaItem createMedia(String uploadToken, String itemDescription, String albumId) throws IOException {
+	public MediaItem createMedia(String uploadToken, String itemDescription, String albumId) throws IOException, NoPermissionToAddPhotoToAlbum {
 		try {
 			log.debug("Creating MediaItem ...");
 			// Create a NewMediaItem with the uploadToken obtained from the previous upload
@@ -322,6 +318,9 @@ public class GooglePhotos {
 			}
 		} catch (Exception e) {
 			log.error(e);
+			if(e.getMessage() != null && e.getMessage().contains("No permission to add media items to this album")) {
+				throw new NoPermissionToAddPhotoToAlbum();
+			}
 			throw new IOException(e);
 		}
 	}
