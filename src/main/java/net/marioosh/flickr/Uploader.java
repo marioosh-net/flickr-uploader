@@ -397,7 +397,7 @@ public class Uploader {
 				log.warn("Can't create file to store migrated list ("+f.getAbsolutePath()+").", e1);
 			}
 		} catch (IOException e) {
-			log.warn("Can't create file to store migrated list ("+f.getAbsolutePath()+").", e);
+			log.warn("Can't save file to store migrated list ("+f.getAbsolutePath()+").", e);
 		}
     }	
 
@@ -432,6 +432,7 @@ public class Uploader {
 			if(a.getMediaItemsCount() == s.getPhotoCount()) {
 				log.info("Skipped - album with title \""+a.getTitle()+"\" exists and have the same photos count ("+s.getPhotoCount()+") on Flickr and Google Photos");
 				migratedPhotosets.add(s.getId());
+				saveMigrated();
 				return;
 			}
 		} else {
