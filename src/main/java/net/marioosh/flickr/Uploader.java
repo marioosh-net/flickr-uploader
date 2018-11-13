@@ -296,7 +296,6 @@ public class Uploader {
 			})) {
         		f.delete();
         	};        	
-        	saveMigrated();
         	log.info("EXIT");
         }
     }
