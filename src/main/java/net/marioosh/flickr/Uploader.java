@@ -478,6 +478,8 @@ public class Uploader {
 				migratedPhotosets.add(s.getId());
 				saveMigrated();
 				return;
+			} else {
+				log.info("Photos in photoset: "+s.getPhotoCount()+", Photos in Google Photos album: "+a.getMediaItemsCount());
 			}
 		} else {
 			log.info("Creating new album \""+albumTitle+"\" ... ");
