@@ -500,7 +500,7 @@ public class Uploader {
         			continue;
         		}
         		if(photoTitles.contains(p.getTitle())) {
-        			log.info("Skipping "+p.getTitle()+", the same filename exists in Google Photos album.");
+        			log.info("Skipping "+p.getTitle()+" ("+c+"/"+s.getPhotoCount()+"), the same filename exists in Google Photos album.");
         		} else {
         			log.info("Copying "+p.getTitle()+" ("+c+"/"+s.getPhotoCount()+") ...");
         			try {
