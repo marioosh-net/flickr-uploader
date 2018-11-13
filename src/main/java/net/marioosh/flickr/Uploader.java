@@ -353,10 +353,10 @@ public class Uploader {
 	            	}
 	            	
 	            	if(migrate != null) {
-	            		migratePhotoset(migrate, false);
+	            		migratePhotoset(migrate, false, null);
 	            	}
 	            	if(migrateById != null) {
-	            		migratePhotoset(migrateById, true);
+	            		migratePhotoset(migrateById, true, null);
 	            	}
 	            	if(migrateAll) {
 	            		migrateAllPhotosets();
@@ -434,17 +434,21 @@ public class Uploader {
      */
 	private void migrateAllPhotosets() throws FlickrException, IOException {
     	Photosets sets = f.getPhotosetsInterface().getList(auth.getUser().getId());
-    	log.info("Flickr photosets: "+sets.getTotal());
+    	int total = sets.getTotal();
+    	log.info("Flickr photosets: "+total);
+    	int i = 1;
         for(Photoset s: sets.getPhotosets()) {
         	if(checkMigrated && migratedPhotosets.contains(s.getId())) {
         		log.info("Photoset ("+s.getTitle()+", id:"+s.getId()+") is on migrated list, skipping.");
         		continue;
         	}
         	try {
-        		migratePhotoset(s.getId(), true);
+        		migratePhotoset(s.getId(), true, " ("+i+"/"+total+")");
         	} catch (NoPermissionToAddPhotoToAlbum e) {
         		log.info("Trying next photoset.");
         		continue; // try next photoset
+        	} finally {
+        		i++;
         	}
         }		
 	}
@@ -457,7 +461,7 @@ public class Uploader {
 	 * @throws IOException
 	 * @throws FlickrException
 	 */
-	private void migratePhotoset(String nameOrId, boolean byId) throws IOException, FlickrException {
+	private void migratePhotoset(String nameOrId, boolean byId, String additionalMessage) throws IOException, FlickrException {
 
 		Photoset s = findSet(nameOrId, byId);
 		if(s == null) {
@@ -465,7 +469,7 @@ public class Uploader {
 		}
 		String albumTitle = s.getTitle()+" "+s.getId();
 		log.info("-------------------------------------------------------------------------");	
-		log.info("Processing photoset \""+s.getTitle()+"\" ("+s.getId()+") ... ");
+		log.info("Processing photoset \""+s.getTitle()+"\" ("+s.getId()+")"+(additionalMessage!=null?additionalMessage:"")+" ... ");
 		
 		Album a = googlePhotos.findAlbumByTitle(albumTitle);
 		if(a != null) {
