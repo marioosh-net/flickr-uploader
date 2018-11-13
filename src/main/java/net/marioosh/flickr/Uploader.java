@@ -147,6 +147,7 @@ public class Uploader {
         try {
             Options options = new Options();
             Option vOpt = new Option("v", false, "verbose");
+            Option vvOpt = new Option("vv", false, "stronger verbose");
             Option tOpt = new Option("t", true, "auth token");
             Option tsOpt = new Option("ts", true, "auth token secret");
             Option dOpt = new Option("d", true, "directory to upload");
@@ -181,6 +182,7 @@ public class Uploader {
             cpOpt.setArgName("credentials_json");
             
             options.addOption(vOpt);
+            options.addOption(vvOpt);
             options.addOption(tOpt);
             options.addOption(tsOpt);
             options.addOption(dOpt);
@@ -207,8 +209,12 @@ public class Uploader {
             CommandLine cmd = parser.parse(options, args);
 
             if(cmd.hasOption("v")) {
-            	Logger.getRootLogger().setLevel(Level.DEBUG);
+            	Logger.getLogger("console").setLevel(Level.DEBUG);
+            	Logger.getLogger("file").setLevel(Level.DEBUG);
             }
+            if(cmd.hasOption("vv")) {
+            	Logger.getRootLogger().setLevel(Level.DEBUG);
+            }            
             if (cmd.hasOption("h")) {
 	            HelpFormatter formatter = new HelpFormatter();
 	            formatter.printHelp("java -jar flickr-uploader.jar", options);
@@ -473,6 +479,7 @@ public class Uploader {
 		
 		Set<String> extras = extras(downloadQuality);
 		extras.add(Extras.TAGS);
+		extras.add(Extras.MEDIA);
 
     	int page = 1;
         int pages = 0;
@@ -481,6 +488,10 @@ public class Uploader {
         	PhotoList<Photo> pl = f.getPhotosetsInterface().getPhotos(s.getId(), extras, Flickr.PRIVACY_LEVEL_NO_FILTER, 500, page);       	
         	List<String> photoTitles = googlePhotos.listFilenames(a);
         	for(Photo p: pl) {
+        		if(!"photo".equalsIgnoreCase(p.getMedia())) {
+        			log.info("Skipping video file: "+p.getTitle());
+        			continue;
+        		}
         		if(photoTitles.contains(p.getTitle())) {
         			log.info("Skipping "+p.getTitle()+", the same filename exists in Google Photos album.");
         		} else {
