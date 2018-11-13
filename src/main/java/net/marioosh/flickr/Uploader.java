@@ -399,6 +399,7 @@ public class Uploader {
 			migratedPhotosets = new HashSet<String>();
 			log.error("Can't load store migrated list from file ("+f.getAbsolutePath()+").");
 		}
+		log.info("Migrated photosets: "+migratedPhotosets.size());
 	}
 	
 	/**
@@ -434,6 +435,7 @@ public class Uploader {
      */
 	private void migrateAllPhotosets() throws FlickrException, IOException {
     	Photosets sets = f.getPhotosetsInterface().getList(auth.getUser().getId());
+    	log.info("Flickr photosets: "+sets.getTotal());
         for(Photoset s: sets.getPhotosets()) {
         	if(checkMigrated && migratedPhotosets.contains(s.getId())) {
         		log.info("Photoset ("+s.getTitle()+", id:"+s.getId()+") is on migrated list, skipping.");
