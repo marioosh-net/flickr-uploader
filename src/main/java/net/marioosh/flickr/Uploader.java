@@ -138,7 +138,7 @@ public class Uploader {
     static boolean migrateAll;
     
     static String googleApiCredentialPath;
-    private static List<String> migratedPhotosets;
+    private static Set<String> migratedPhotosets = new HashSet<String>();
     private static boolean checkMigrated;
     
     public static void main(String[] args) {
@@ -283,8 +283,7 @@ public class Uploader {
 				}
 			})) {
         		f.delete();
-        	};
-        	log.info("Saving migrated list file...");
+        	};        	
         	saveMigrated();
         	log.info("EXIT");
         }
@@ -368,18 +367,27 @@ public class Uploader {
 		try {
 			FileInputStream in = new FileInputStream(f);
 			ObjectInputStream ois = new ObjectInputStream(in);
-			migratedPhotosets = (List<String>) ois.readObject();
+			Object o = ois.readObject();
+			if(o instanceof List) {
+				List<String> migratedPhotosets1 = (List<String>) o;
+				for(String ps: migratedPhotosets1) {
+					migratedPhotosets.add(ps);
+				}
+			} else {
+				migratedPhotosets = (Set<String>) o;
+			}
 			ois.close();			
 			if(migratedPhotosets == null) {
-				migratedPhotosets = new ArrayList<String>();
+				migratedPhotosets = new HashSet<String>();
 			}
 		} catch (Exception e) {
-			migratedPhotosets = new ArrayList<String>();
+			migratedPhotosets = new HashSet<String>();
 			log.error("Can't load store migrated list from file ("+f.getAbsolutePath()+").");
 		}
 	}
 	
     private static void saveMigrated() {
+    	log.info("Saving migrated list file...");
     	File f = new File(System.getProperty("user.home"), MIGRATED_ALBUM_LIST_FILE);
 		try {
 			FileOutputStream fos = new FileOutputStream(f);
