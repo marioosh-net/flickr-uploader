@@ -37,6 +37,7 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.PosixParser;
 import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.scribe.model.Token;
 import org.scribe.model.Verifier;
@@ -145,6 +146,7 @@ public class Uploader {
     	log.info("START");
         try {
             Options options = new Options();
+            Option vOpt = new Option("v", false, "verbose");
             Option tOpt = new Option("t", true, "auth token");
             Option tsOpt = new Option("ts", true, "auth token secret");
             Option dOpt = new Option("d", true, "directory to upload");
@@ -178,6 +180,7 @@ public class Uploader {
             gqOpt.setArgName("quality");
             cpOpt.setArgName("credentials_json");
             
+            options.addOption(vOpt);
             options.addOption(tOpt);
             options.addOption(tsOpt);
             options.addOption(dOpt);
@@ -203,6 +206,9 @@ public class Uploader {
             CommandLineParser parser = new PosixParser();
             CommandLine cmd = parser.parse(options, args);
 
+            if(cmd.hasOption("v")) {
+            	Logger.getRootLogger().setLevel(Level.DEBUG);
+            }
             if (cmd.hasOption("h")) {
 	            HelpFormatter formatter = new HelpFormatter();
 	            formatter.printHelp("java -jar flickr-uploader.jar", options);
@@ -341,13 +347,13 @@ public class Uploader {
 	            	}
 	            	
 	            	if(migrate != null) {
-	            		migrate(migrate, false);
+	            		migratePhotoset(migrate, false);
 	            	}
 	            	if(migrateById != null) {
-	            		migrate(migrateById, true);
+	            		migratePhotoset(migrateById, true);
 	            	}
 	            	if(migrateAll) {
-	            		migrateAll();
+	            		migrateAllPhotosets();
 	            	}	            	
 	            	if(downloadAll) {
 	            		downloadPhotos();
@@ -361,6 +367,9 @@ public class Uploader {
 		}
     }
 
+	/**
+	 * restore migrated list from file
+	 */
 	private void loadMigrated() {
 		File f = new File(System.getProperty("user.home"), MIGRATED_ALBUM_LIST_FILE);
 		try {
@@ -385,6 +394,9 @@ public class Uploader {
 		}
 	}
 	
+	/**
+	 * save migrated list to file for skipping migrated photoset in the future call
+	 */
     private static void saveMigrated() {
     	log.info("Saving migrated list file...");
     	File f = new File(System.getProperty("user.home"), MIGRATED_ALBUM_LIST_FILE);
@@ -407,18 +419,32 @@ public class Uploader {
 		}
     }	
 
-	private void migrateAll() throws FlickrException, IOException {
+    /**
+     * migrate all Flickr photosets
+     * 
+     * @throws FlickrException
+     * @throws IOException
+     */
+	private void migrateAllPhotosets() throws FlickrException, IOException {
     	Photosets sets = f.getPhotosetsInterface().getList(auth.getUser().getId());
         for(Photoset s: sets.getPhotosets()) {
         	if(checkMigrated && migratedPhotosets.contains(s.getId())) {
         		log.info("Photoset ("+s.getTitle()+", id:"+s.getId()+") is on migrated list, skipping.");
         		continue;
         	}
-        	migrate(s.getId(), true);
+        	migratePhotoset(s.getId(), true);
         }		
 	}
 
-	private void migrate(String nameOrId, boolean byId) throws IOException, FlickrException {
+	/**
+	 * migrate one Flickr photoset
+	 * 
+	 * @param nameOrId name or id photoset
+	 * @param byId first parameter as photoset id
+	 * @throws IOException
+	 * @throws FlickrException
+	 */
+	private void migratePhotoset(String nameOrId, boolean byId) throws IOException, FlickrException {
 
 		Photoset s = findSet(nameOrId, byId);
 		if(s == null) {
