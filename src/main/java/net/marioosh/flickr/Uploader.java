@@ -130,6 +130,7 @@ public class Uploader {
     static boolean deleteDoubleOne = false;
     static String deleteDoubleOneTitle;
     static boolean list = false;
+    static boolean listGP = false;
     static String download;
     static String downloadById;
     static String migrateById;
@@ -169,6 +170,7 @@ public class Uploader {
             Option maOpt = new Option("ma", false, "migrate all photos of all albums");
             Option cpOpt = new Option("cp", true, "Google Photos credentials.json path");
             Option cmOpt = new Option("cm", false, "Check migrated list file (.flickr-migrated)");
+            Option glOpt = new Option("gl", false, "list albums (Google Photos)");
             
             tOpt.setArgName("token");
             tsOpt.setArgName("token_scret");
@@ -203,6 +205,7 @@ public class Uploader {
             options.addOption(gaOpt);
             options.addOption(maOpt);
             options.addOption(cmOpt);
+            options.addOption(glOpt);
 
             log.debug("HOME: "+ System.getProperty("user.home"));
 
@@ -270,6 +273,9 @@ public class Uploader {
             if(cmd.hasOption("l")) {
             	list = true;
             }            
+            if(cmd.hasOption("gl")) {
+            	listGP = true;
+            }            
             if(cmd.hasOption("ga")) {
             	downloadAll = true;
             }
@@ -304,10 +310,12 @@ public class Uploader {
     	try {
 			auth = auth();
 			
-        	if(migrate != null || migrateById != null || migrateAll) {
+        	if(migrate != null || migrateById != null || migrateAll || listGP) {
         		// init only
         		googlePhotos = GooglePhotos.getInstance(googleApiCredentialPath);
-        		loadMigrated(); 
+        		if(!listGP) {
+        			loadMigrated();
+        		}
         	}
 			
 			if(auth != null) {
@@ -315,6 +323,9 @@ public class Uploader {
 	            if (auth.getPermission().equals(Permission.WRITE) || auth.getPermission().equals(Permission.DELETE)) {
 	            	if(list) {
 	            		listSets();
+	            	}
+	            	if(listGP) {
+	            		googlePhotos.listAlbums();
 	            	}
 	            	if(deleteDoubleOne && deleteDoubleOneTitle != null) {
 	            		deleteDoubles(deleteDoubleOneTitle);
@@ -399,6 +410,7 @@ public class Uploader {
 			log.error("Can't load store migrated list from file ("+f.getAbsolutePath()+").");
 		}
 		log.info("Migrated photosets: "+migratedPhotosets.size());
+		log.debug(migratedPhotosets.toString().replaceAll(",", "\n").replaceAll("[\\]\\[\\ ]", ""));
 	}
 	
 	/**
@@ -643,6 +655,8 @@ public class Uploader {
 	}
 
 	private void listSets() {
+		log.info("-------------------------------------------------------------------------");
+		log.info("Flickr photoset list:");
     	try {
 	        Photosets sets = f.getPhotosetsInterface().getList(auth.getUser().getId());
 	        if(sets.getPhotosets().size() == 0) {
@@ -653,7 +667,7 @@ public class Uploader {
 	        		Date updated = new Date(Long.parseLong(s.getDateUpdate())*1000);
 	        		Date created = new Date(Long.parseLong(s.getDateCreate())*1000);
 	        		Date printed = updated.after(created) ? updated: created;
-	        		System.out.println(Utils.padRight(s.getPhotoCount()+"",5)+" "+DATE_FORMAT_DATE.format(printed)+" "+s.getId()+" "+s.getTitle());
+	        		log.info(Utils.padRight(s.getPhotoCount()+"",5)+" "+DATE_FORMAT_DATE.format(printed)+" "+s.getId()+" "+s.getTitle());
 	        	}
 	        }
     	} catch (FlickrException e) {

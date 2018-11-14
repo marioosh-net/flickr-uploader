@@ -324,4 +324,15 @@ public class GooglePhotos {
 			throw new IOException(e);
 		}
 	}
+
+	public void listAlbums() {
+		log.info("-------------------------------------------------------------------------");
+		log.info("Google Photos album list:");
+		ListAlbumsPagedResponse response = client.listAlbums();
+		Iterator<Album> it = response.iterateAll().iterator();
+		while(it.hasNext()) {
+			Album a = it.next();
+			log.info(Utils.padRight(a.getMediaItemsCount()+"",5)+/*" "+a.getId()+*/" "+a.getTitle());
+		}		
+	}
 }
