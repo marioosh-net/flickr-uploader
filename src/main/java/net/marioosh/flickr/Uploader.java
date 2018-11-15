@@ -448,10 +448,11 @@ public class Uploader {
     	Photosets sets = f.getPhotosetsInterface().getList(auth.getUser().getId());
     	int total = sets.getTotal();
     	log.info("Flickr photosets: "+total);
-    	int i = 1;
+    	int i = 0;
         for(Photoset s: sets.getPhotosets()) {
+        	i++;
         	if(checkMigrated && migratedPhotosets.contains(s.getId())) {
-        		log.info("Photoset ("+s.getTitle()+", id:"+s.getId()+") is on migrated list, skipping.");
+        		log.info("Photoset ("+s.getTitle()+", id:"+s.getId()+") is on migrated list, skipping.");        		
         		continue;
         	}
         	try {
@@ -459,8 +460,6 @@ public class Uploader {
         	} catch (NoPermissionToAddPhotoToAlbum e) {
         		log.info("Trying next photoset.");
         		continue; // try next photoset
-        	} finally {
-        		i++;
         	}
         }		
 	}
