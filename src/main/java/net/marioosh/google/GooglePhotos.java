@@ -189,14 +189,20 @@ public class GooglePhotos {
 	 * @param p
 	 * @param downloadQuality
 	 * @param a
+	 * @param localCopyDir
 	 * @throws FlickrException 
 	 * @throws IOException  
 	 */
-	public void migrate(Photo p, String downloadQuality, Album a) throws FlickrException, IOException {
+	public void migrate(Photo p, String downloadQuality, Album a, File smDir) throws FlickrException, IOException {
 		
 		String urlString = Utils.getPhotoUrl(downloadQuality, p);
-		File outFile = File.createTempFile("flickr_", ".tmp");
-		outFile.deleteOnExit();
+		final File outFile;
+		if(smDir == null) {
+			outFile = File.createTempFile("flickr_", ".tmp");
+			outFile.deleteOnExit();
+		} else {
+			outFile = new File(smDir, p.getTitle());
+		}
 		
 		Utils.downloadUrlToFile(urlString, outFile);		
 		String uploadToken = upload(outFile, p.getTitle());

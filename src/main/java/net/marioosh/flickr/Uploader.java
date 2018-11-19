@@ -142,6 +142,7 @@ public class Uploader {
     static String googleApiCredentialPath;
     private static Set<String> migratedPhotosets = new HashSet<String>();
     private static boolean checkMigrated;
+    private static String sm;
     
     public static void main(String[] args) {
 		log.info("=========================================================================");    	
@@ -171,6 +172,7 @@ public class Uploader {
             Option cpOpt = new Option("cp", true, "Google Photos credentials.json path");
             Option cmOpt = new Option("cm", false, "Check migrated list file (.flickr-migrated)");
             Option glOpt = new Option("gl", false, "list albums (Google Photos)");
+            Option smOpt = new Option("sm", true, "save migrated file locally");
             
             tOpt.setArgName("token");
             tsOpt.setArgName("token_scret");
@@ -183,6 +185,7 @@ public class Uploader {
             m2Opt.setArgName("photoset_id");
             gqOpt.setArgName("quality");
             cpOpt.setArgName("credentials_json");
+            smOpt.setArgName("storage_path");
             
             options.addOption(vOpt);
             options.addOption(vvOpt);
@@ -206,6 +209,7 @@ public class Uploader {
             options.addOption(maOpt);
             options.addOption(cmOpt);
             options.addOption(glOpt);
+            options.addOption(smOpt);
 
             log.debug("HOME: "+ System.getProperty("user.home"));
 
@@ -287,6 +291,9 @@ public class Uploader {
             }
             if(cmd.hasOption("cm")) {
             	checkMigrated = true;
+            }
+            if(cmd.hasOption("sm")) {
+            	sm = cmd.getOptionValue("sm");
             }
 
             new Uploader();
@@ -522,7 +529,19 @@ public class Uploader {
         		} else {
         			log.info("Copying "+p.getTitle()+" ("+c+"/"+s.getPhotoCount()+") ...");
         			try {
-        				googlePhotos.migrate(p, downloadQuality, a);
+        				
+        				File smDir = null;
+        				if(sm != null) {
+        					smDir = new File(sm);
+        					if(smDir.exists() && smDir.isDirectory()) {        						
+        					} else {
+        						boolean created = smDir.mkdirs();
+        						if(!created) {
+        							throw new IOException("Couldn't create storage directory \""+smDir.getAbsolutePath()+"\"");
+        						}
+        					}
+        				}        				
+        				googlePhotos.migrate(p, downloadQuality, a, smDir);
         			} catch (IOException e) {
         				if(e instanceof NoPermissionToAddPhotoToAlbum) {
         					throw e;
