@@ -528,9 +528,8 @@ public class Uploader {
         			log.info("Skipping "+p.getTitle()+" ("+c+"/"+s.getPhotoCount()+"), the same filename exists in Google Photos album.");
         		} else {
         			log.info("Copying "+p.getTitle()+" ("+c+"/"+s.getPhotoCount()+") ...");
+    				File smDir = null;
         			try {
-        				
-        				File smDir = null;
         				if(sm != null) {
         					smDir = new File(sm);
         					if(smDir.exists() && smDir.isDirectory()) {        						
@@ -543,7 +542,7 @@ public class Uploader {
         				}        				
         				googlePhotos.migrate(p, downloadQuality, a, smDir);
         			} catch (IOException e) {
-        				if(e instanceof NoPermissionToAddPhotoToAlbum) {
+        				if(e instanceof NoPermissionToAddPhotoToAlbum && smDir == null) {
         					throw e;
         				} else {
         					// continue with next photo

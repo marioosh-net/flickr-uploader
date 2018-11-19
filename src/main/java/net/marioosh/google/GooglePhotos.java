@@ -201,10 +201,13 @@ public class GooglePhotos {
 			outFile = File.createTempFile("flickr_", ".tmp");
 			outFile.deleteOnExit();
 		} else {
-			outFile = new File(smDir, p.getTitle());
+			outFile = new File(smDir, p.getTitle());			
 		}
 		
 		Utils.downloadUrlToFile(urlString, outFile);		
+		if(smDir != null) {
+			log.info("Stored copy in destination: "+outFile.getAbsolutePath());
+		}
 		String uploadToken = upload(outFile, p.getTitle());
 		Supplier<List<String>> supplier = new Supplier<List<String>>() {
     		public List<String> get() {
