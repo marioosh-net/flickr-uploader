@@ -522,6 +522,7 @@ public class Uploader {
         	for(Photo p: pl) {
         		if(!"photo".equalsIgnoreCase(p.getMedia())) {
         			log.info("Skipping video file: "+p.getTitle());
+        			c++;
         			continue;
         		}
         		if(photoTitles.contains(p.getTitle())) {

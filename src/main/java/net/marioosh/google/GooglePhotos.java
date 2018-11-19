@@ -206,7 +206,7 @@ public class GooglePhotos {
 		
 		Utils.downloadUrlToFile(urlString, outFile);		
 		if(smDir != null) {
-			log.info("Stored copy in destination: "+outFile.getAbsolutePath());
+			log.info("Stored copy in destination: "+outFile.getAbsolutePath() +" ("+urlString+")");
 		}
 		String uploadToken = upload(outFile, p.getTitle());
 		Supplier<List<String>> supplier = new Supplier<List<String>>() {
