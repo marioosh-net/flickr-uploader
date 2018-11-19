@@ -531,7 +531,7 @@ public class Uploader {
     				File smDir = null;
         			try {
         				if(sm != null) {
-        					smDir = new File(sm);
+        					smDir = new File(sm, a.getTitle());
         					if(smDir.exists() && smDir.isDirectory()) {        						
         					} else {
         						boolean created = smDir.mkdirs();
