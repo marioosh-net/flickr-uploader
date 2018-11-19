@@ -227,7 +227,9 @@ public class GooglePhotos {
     	try {
     		createMedia(uploadToken, description, a.getId());
 		} finally {
-			outFile.delete();
+			if(smDir == null) {
+				outFile.delete();
+			}
 		}
 	}
 	
