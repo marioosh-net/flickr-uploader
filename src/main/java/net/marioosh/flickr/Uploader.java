@@ -143,6 +143,7 @@ public class Uploader {
     private static Set<String> migratedPhotosets = new HashSet<String>();
     private static boolean checkMigrated;
     private static String sm;
+    private static boolean deleteAllPrivatePhotos;
     
     public static void main(String[] args) {
 		log.info("=========================================================================");    	
@@ -173,6 +174,7 @@ public class Uploader {
             Option cmOpt = new Option("cm", false, "Check migrated list file (.flickr-migrated)");
             Option glOpt = new Option("gl", false, "list albums (Google Photos)");
             Option smOpt = new Option("sm", true, "save migrated file locally");
+            Option dapOpt = new Option("dap", false, "delete all private photos in all photosets");
             
             tOpt.setArgName("token");
             tsOpt.setArgName("token_scret");
@@ -210,6 +212,7 @@ public class Uploader {
             options.addOption(cmOpt);
             options.addOption(glOpt);
             options.addOption(smOpt);
+            options.addOption(dapOpt);
 
             log.debug("HOME: "+ System.getProperty("user.home"));
 
@@ -295,6 +298,7 @@ public class Uploader {
             if(cmd.hasOption("sm")) {
             	sm = cmd.getOptionValue("sm");
             }
+           	deleteAllPrivatePhotos = cmd.hasOption("dap");
 
             new Uploader();
         } catch (Exception e) {
@@ -382,6 +386,9 @@ public class Uploader {
 	            	if(downloadAll) {
 	            		downloadPhotos();
 	            	}
+	            	if(deleteAllPrivatePhotos) {
+	            		deleteAllPrivatePhotos();
+	            	}
 	            	
 	            }
 			}
@@ -390,6 +397,55 @@ public class Uploader {
 			log.error(e);
 		}
     }
+
+	private void deleteAllPrivatePhotos() throws FlickrException {
+    	Photosets sets = f.getPhotosetsInterface().getList(auth.getUser().getId());
+    	int total = sets.getTotal();
+    	log.info("Flickr photosets: "+total);
+
+    	Set<String> extras = extras(downloadQuality);
+		extras.add(Extras.TAGS);
+		extras.add(Extras.MEDIA);
+    	
+		int c = 0;
+		int pc = 0;
+		int skipped = 0;
+		int pcWithSkipped = 0;
+        for(Photoset s: sets.getPhotosets()) {
+        	log.info("Processing photoset '"+s.getTitle()+"' (description:"+s.getDescription()+") ... ");
+        	if(!(s.getDescription() != null && s.getDescription().toLowerCase().contains("public"))) {
+        		continue;
+        	}
+        	int page = 1;
+            int pages = 0;
+            do {
+            	PhotoList<Photo> pl = f.getPhotosetsInterface().getPhotos(s.getId(), extras, Flickr.PRIVACY_LEVEL_NO_FILTER, 500, page);
+            	boolean once = true;
+            	for(Photo p: pl) {
+            		if(p.isFamilyFlag()||p.isFriendFlag()||p.isPublicFlag()) {
+            			log.info("Skipping photo '"+p.getTitle()+"' (id: "+p.getId() +") ... ");
+            			skipped++;
+            			if(once) {
+            				pcWithSkipped++;
+            				once = false;
+            			}
+            		} else {
+            			log.info("Deleting photo '"+p.getTitle()+"' (id: "+p.getId() +") ... ");
+	            		f.getPhotosInterface().delete(p.getId());
+	            		c++;
+            		}            		
+            	}
+            	if(page == 1) {
+            		pages = pl.getPages();
+            	}
+            } while (page++ < pages);
+            pc++;
+        }	
+        
+        log.info("Deleted "+c+" photos in "+pc+" photosets.");
+        log.info("Skipped "+skipped+" photos in "+pc+" photosets.");
+        log.info("Photosets with non-private photos: "+pcWithSkipped);
+	}
 
 	/**
 	 * restore migrated list from file
