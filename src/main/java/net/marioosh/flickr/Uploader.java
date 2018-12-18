@@ -438,7 +438,8 @@ public class Uploader {
 		int pcWithSkipped = 0;
         for(Photoset s: l) {
         	log.info("Processing photoset '"+s.getTitle()+"' (id:"+s.getId()+", description:"+s.getDescription()+") ... ");
-        	if(!(s.getDescription() != null && s.getDescription().toLowerCase().contains("public"))) {
+        	if(!(s.getDescription() != null && (s.getDescription().toLowerCase().contains("public") 
+        			|| s.getDescription().toLowerCase().equals(" ")))) {
         		continue;
         	}
         	int page = 1;
