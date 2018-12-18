@@ -144,6 +144,8 @@ public class Uploader {
     private static boolean checkMigrated;
     private static String sm;
     private static boolean deleteAllPrivatePhotos;
+    private static String deleteAllPrivatePhotosPhotoset;
+    private static boolean simulate;
     
     public static void main(String[] args) {
 		log.info("=========================================================================");    	
@@ -175,6 +177,8 @@ public class Uploader {
             Option glOpt = new Option("gl", false, "list albums (Google Photos)");
             Option smOpt = new Option("sm", true, "save migrated file locally");
             Option dapOpt = new Option("dap", false, "delete all private photos in all photosets");
+            Option dap1Opt = new Option("p", true, "photoset (name or id) to delete all private photos");
+            Option sOpt = new Option("s", false, "simulate deleting only, photos will not be deleted");
             
             tOpt.setArgName("token");
             tsOpt.setArgName("token_scret");
@@ -213,6 +217,8 @@ public class Uploader {
             options.addOption(glOpt);
             options.addOption(smOpt);
             options.addOption(dapOpt);
+            options.addOption(dap1Opt);
+            options.addOption(sOpt);
 
             log.debug("HOME: "+ System.getProperty("user.home"));
 
@@ -299,6 +305,10 @@ public class Uploader {
             	sm = cmd.getOptionValue("sm");
             }
            	deleteAllPrivatePhotos = cmd.hasOption("dap");
+           	simulate = cmd.hasOption("s");
+           	if(cmd.hasOption("p")) {
+           		deleteAllPrivatePhotosPhotoset = cmd.getOptionValue("p");
+           	}
 
             new Uploader();
         } catch (Exception e) {
@@ -387,7 +397,7 @@ public class Uploader {
 	            		downloadPhotos();
 	            	}
 	            	if(deleteAllPrivatePhotos) {
-	            		deleteAllPrivatePhotos();
+	            		deleteAllPrivatePhotos(deleteAllPrivatePhotosPhotoset);
 	            	}
 	            	
 	            }
@@ -398,10 +408,25 @@ public class Uploader {
 		}
     }
 
-	private void deleteAllPrivatePhotos() throws FlickrException {
-    	Photosets sets = f.getPhotosetsInterface().getList(auth.getUser().getId());
-    	int total = sets.getTotal();
-    	log.info("Flickr photosets: "+total);
+	private void deleteAllPrivatePhotos(String nameOrId) throws FlickrException {
+		Photoset psOne = null;
+		if(nameOrId != null) {
+			psOne = findSet(nameOrId, true);
+			if(psOne == null) {
+				psOne = findSet(nameOrId, false);
+			}
+		}
+		
+		List<Photoset> l = new ArrayList<Photoset>();
+		if(psOne != null) {
+			l.add(psOne);
+		} else {
+	    	Photosets sets = f.getPhotosetsInterface().getList(auth.getUser().getId());
+	    	int total = sets.getTotal();
+	    	log.info("Flickr photosets: "+total);
+	    	l.addAll(sets.getPhotosets());
+		}
+		
 
     	Set<String> extras = extras(downloadQuality);
 		extras.add(Extras.TAGS);
@@ -411,8 +436,8 @@ public class Uploader {
 		int pc = 0;
 		int skipped = 0;
 		int pcWithSkipped = 0;
-        for(Photoset s: sets.getPhotosets()) {
-        	log.info("Processing photoset '"+s.getTitle()+"' (description:"+s.getDescription()+") ... ");
+        for(Photoset s: l) {
+        	log.info("Processing photoset '"+s.getTitle()+"' (id:"+s.getId()+", description:"+s.getDescription()+") ... ");
         	if(!(s.getDescription() != null && s.getDescription().toLowerCase().contains("public"))) {
         		continue;
         	}
@@ -431,7 +456,9 @@ public class Uploader {
             			}
             		} else {
             			log.info("Deleting photo '"+p.getTitle()+"' (id: "+p.getId() +") ... ");
-	            		f.getPhotosInterface().delete(p.getId());
+            			if(!simulate) {
+            				f.getPhotosInterface().delete(p.getId());
+            			}
 	            		c++;
             		}            		
             	}
