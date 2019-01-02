@@ -440,6 +440,9 @@ public class Uploader {
         	log.info("Processing photoset '"+s.getTitle()+"' (id:"+s.getId()+", description:"+s.getDescription()+") ... ");
         	boolean publishedPhotoset = (s.getDescription() != null && (s.getDescription().toLowerCase().contains("public") 
         			|| s.getDescription().toLowerCase().equals(" ")));
+        	
+        	publishedPhotoset = true; // always true, do NOT check photosets title or something, instead check photos flags 
+        	
         	int page = 1;
             int pages = 0;
             do {
