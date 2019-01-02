@@ -438,17 +438,15 @@ public class Uploader {
 		int pcWithSkipped = 0;
         for(Photoset s: l) {
         	log.info("Processing photoset '"+s.getTitle()+"' (id:"+s.getId()+", description:"+s.getDescription()+") ... ");
-        	if(!(s.getDescription() != null && (s.getDescription().toLowerCase().contains("public") 
-        			|| s.getDescription().toLowerCase().equals(" ")))) {
-        		continue;
-        	}
+        	boolean publishedPhotoset = (s.getDescription() != null && (s.getDescription().toLowerCase().contains("public") 
+        			|| s.getDescription().toLowerCase().equals(" ")));
         	int page = 1;
             int pages = 0;
             do {
             	PhotoList<Photo> pl = f.getPhotosetsInterface().getPhotos(s.getId(), extras, Flickr.PRIVACY_LEVEL_NO_FILTER, 500, page);
             	boolean once = true;
             	for(Photo p: pl) {
-            		if(p.isFamilyFlag()||p.isFriendFlag()||p.isPublicFlag()) {
+            		if(publishedPhotoset && (p.isFamilyFlag()||p.isFriendFlag()||p.isPublicFlag())) {
             			log.info("Skipping photo '"+p.getTitle()+"' (id: "+p.getId() +") ... ");
             			skipped++;
             			if(once) {
