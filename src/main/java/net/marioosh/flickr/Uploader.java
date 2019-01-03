@@ -437,37 +437,41 @@ public class Uploader {
 		int skipped = 0;
 		int pcWithSkipped = 0;
         for(Photoset s: l) {
-        	log.info("Processing photoset '"+s.getTitle()+"' (id:"+s.getId()+", description:"+s.getDescription()+") ... ");
+        	log.info("Processing photoset '"+s.getTitle()+"' (id:"+s.getId()+", description:"+s.getDescription()+") "+(pc+1)+"/"+l.size()+" ... ");
         	boolean publishedPhotoset = (s.getDescription() != null && (s.getDescription().toLowerCase().contains("public") 
         			|| s.getDescription().toLowerCase().equals(" ")));
         	
         	publishedPhotoset = true; // always true, do NOT check photosets title or something, instead check photos flags 
         	
-        	int page = 1;
-            int pages = 0;
-            do {
-            	PhotoList<Photo> pl = f.getPhotosetsInterface().getPhotos(s.getId(), extras, Flickr.PRIVACY_LEVEL_NO_FILTER, 500, page);
-            	boolean once = true;
-            	for(Photo p: pl) {
-            		if(publishedPhotoset && (p.isFamilyFlag()||p.isFriendFlag()||p.isPublicFlag())) {
-            			log.info("Skipping photo '"+p.getTitle()+"' (id: "+p.getId() +") ... ");
-            			skipped++;
-            			if(once) {
-            				pcWithSkipped++;
-            				once = false;
-            			}
-            		} else {
-            			log.info("Deleting photo '"+p.getTitle()+"' (id: "+p.getId() +") ... ");
-            			if(!simulate) {
-            				f.getPhotosInterface().delete(p.getId());
-            			}
-	            		c++;
-            		}            		
-            	}
-            	if(page == 1) {
-            		pages = pl.getPages();
-            	}
-            } while (page++ < pages);
+        	try {
+	        	int page = 1;
+	            int pages = 0;
+	            do {
+	            	PhotoList<Photo> pl = f.getPhotosetsInterface().getPhotos(s.getId(), extras, Flickr.PRIVACY_LEVEL_NO_FILTER, 500, page);
+	            	boolean once = true;
+	            	for(Photo p: pl) {
+	            		if(publishedPhotoset && (p.isFamilyFlag()||p.isFriendFlag()||p.isPublicFlag())) {
+	            			log.info("Skipping photo '"+p.getTitle()+"' (id: "+p.getId() +") ... ");
+	            			skipped++;
+	            			if(once) {
+	            				pcWithSkipped++;
+	            				once = false;
+	            			}
+	            		} else {
+	            			log.info("Deleting photo '"+p.getTitle()+"' (id: "+p.getId() +") ... ");
+	            			if(!simulate) {
+	            				f.getPhotosInterface().delete(p.getId());
+	            			}
+		            		c++;
+	            		}            		
+	            	}
+	            	if(page == 1) {
+	            		pages = pl.getPages();
+	            	}
+	            } while (page++ < pages);
+        	} catch (FlickrException e) {
+        		log.error("Photoset processing error, continue with next one.", e);
+        	}
             pc++;
         }	
         
