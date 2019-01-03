@@ -446,19 +446,22 @@ public class Uploader {
         	try {
 	        	int page = 1;
 	            int pages = 0;
+	            int photoCounter = 0;
 	            do {
 	            	PhotoList<Photo> pl = f.getPhotosetsInterface().getPhotos(s.getId(), extras, Flickr.PRIVACY_LEVEL_NO_FILTER, 500, page);
 	            	boolean once = true;
 	            	for(Photo p: pl) {
+	            		photoCounter++;
+	            		String counter = photoCounter + "/" + pl.getTotal();
 	            		if(publishedPhotoset && (p.isFamilyFlag()||p.isFriendFlag()||p.isPublicFlag())) {
-	            			log.info("Skipping photo '"+p.getTitle()+"' (id: "+p.getId() +") ... ");
+	            			log.info("Skipping photo '"+p.getTitle()+"' (id: "+p.getId() +") "+counter+" ... ");
 	            			skipped++;
 	            			if(once) {
 	            				pcWithSkipped++;
 	            				once = false;
 	            			}
 	            		} else {
-	            			log.info("Deleting photo '"+p.getTitle()+"' (id: "+p.getId() +") ... ");
+	            			log.info("Deleting photo '"+p.getTitle()+"' (id: "+p.getId() +") "+counter+" ... ");
 	            			if(!simulate) {
 	            				f.getPhotosInterface().delete(p.getId());
 	            			}
